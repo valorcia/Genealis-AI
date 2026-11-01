@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { BookOpen, Camera, ChevronDown, ChevronUp, Crown, FileDown, FileUp, FileSearch, GitFork, Lightbulb, Search, ShieldCheck, Sparkles, Trash2, UserPlus, Users } from 'lucide-react'
+import { BookOpen, Camera, ChevronDown, ChevronUp, Crown, FileDown, FileUp, FileSearch, GitFork, Lightbulb, Radar, Search, ShieldCheck, Sparkles, Trash2, UserPlus, Users } from 'lucide-react'
 import { api, openExternal, type Advice, type PersonDetail } from '../api'
 import { useApp, pulseEngine } from '../store'
 import { ConfidenceChip, Spinner } from '../components/ui'
@@ -120,6 +120,7 @@ export default function PersonPage() {
         <div className="flex flex-wrap gap-2 px-4 pb-3 sm:px-5">
           <Link to={`/livre/personne/${p.id}`} className="btn-ghost !px-3 !py-1.5 !text-[13px]"><BookOpen size={14} />Lire son chapitre</Link>
           <Link to={`/documents/importer?personne=${p.id}`} className="btn-ghost !px-3 !py-1.5 !text-[13px]"><FileUp size={14} />Importer un acte</Link>
+          <Link to={`/investigation?person=${p.id}`} className="btn-gold !px-3 !py-1.5 !text-[13px]"><Radar size={14} />Lancer une enquête autonome</Link>
         </div>
         {why && <div className="mx-4 mb-3 rounded-2xl bg-mist-100 p-3 text-xs text-night-900 sm:mx-5">{criteria.length === 0 ? 'Aucun critère détaillé disponible.' : <ul className="list-disc pl-4">{criteria.map((c, i) => <li key={i}>{c}</li>)}</ul>}</div>}
 

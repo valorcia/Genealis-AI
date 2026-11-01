@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Activity, Archive, ArrowRight, CheckCircle2, ChevronRight, ExternalLink, FileSearch, FileText, GitFork, Globe, HelpCircle, History, Lightbulb, Play, Rocket, Search, Sparkles,
+  Activity, Archive, ArrowRight, CheckCircle2, ChevronRight, ExternalLink, FileSearch, FileText, GitFork, Globe, HelpCircle, History, Lightbulb, Play, Radar, Rocket, Search, Sparkles,
   Upload, UserPlus, Users, Zap,
 } from 'lucide-react'
 import { api, openExternal, type Advice, type Discovery, type PersonSummary, type Priority, type QuestionOut } from '../api'
@@ -152,6 +152,12 @@ function ResearchCentre({ paused: pausedSetting, refreshDashboard }: { paused: b
         </div>
         <div className="mt-4 [&_.btn-gold]:bg-white [&_.btn-gold]:text-[#4329b8] [&_.btn-gold:hover]:bg-white/90">{action}</div>
       </section>
+
+      <Link to="/investigation" className="fade-up flex items-center gap-3 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(20,40,80,0.06),0_10px_30px_-18px_rgba(20,40,80,0.35)] ring-1 ring-[#5b3fd6]/15 hover:ring-[#5b3fd6]/40">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white" style={{ background: AI.color }}><Radar size={21} /></span>
+        <span className="min-w-0 flex-1"><span className="block text-[16px] font-bold text-night-900">Centre d’investigation</span><span className="block text-[13px] text-mist-500">Lancer une enquête autonome sur un ancêtre et la suivre en direct</span></span>
+        <ChevronRight size={18} className="shrink-0 text-mist-400" />
+      </Link>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
