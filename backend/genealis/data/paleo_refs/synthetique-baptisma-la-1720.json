@@ -1,0 +1,12 @@
+{
+  "id": "synthetique-baptisma-la-1720",
+  "title": "SYNTHÉTIQUE — baptême fictif en latin ecclésiastique (imitation d'un registre vers 1720)",
+  "synthetic": true,
+  "script_type": "latin_ecclesiastical",
+  "language": "la",
+  "period": "1720 (imitation)",
+  "image_url_public": null,
+  "licence": "CC0 — texte synthétique créé pour les tests de GENEALIS AI ; personnes et lieu inventés, aucun document réel.",
+  "reference_text": "Anno Domini 1720 die 3 mensis Maii baptizatus est\nJoannes filius legitimus Petri Wernet et Mariae Kleinerin\nconjugum hujus parochiae patrini fuerunt\nJoannes Wernet patruus infantis et Anna Mosserin",
+  "notes": "Référence SYNTHÉTIQUE (tests automatiques). Ne mesure pas la lecture d'une main réelle."
+}
