@@ -1,0 +1,12 @@
+{
+  "id": "synthetique-bapteme-fr-1650",
+  "title": "SYNTHÉTIQUE — baptême fictif rédigé à la manière d'un registre paroissial français de 1650",
+  "synthetic": true,
+  "script_type": "french_cursive",
+  "language": "fr",
+  "period": "1650 (imitation)",
+  "image_url_public": null,
+  "licence": "CC0 — texte synthétique créé pour les tests de GENEALIS AI ; ne reproduit AUCUN document réel, toutes les personnes et le lieu sont inventés.",
+  "reference_text": "Le douziesme iour de mars mil six cens cinquante\na esté baptisé Claude fils legitime de Nicolas Bertrin\nmanouurier et de Jeanne Varlet sa femme de cette parr.\nle parrain Claude Mouginot oncle maternel de lenfant\nla marraine Anne Thiriet laquelle a declaré ne scauoir signer",
+  "notes": "Référence SYNTHÉTIQUE utilisée par les tests automatiques (image générée avec Pillow). Elle ne mesure pas la qualité de lecture d'une écriture ancienne réelle : pour cela, ajoutez des documents publics vérifiés (voir README.md)."
+}

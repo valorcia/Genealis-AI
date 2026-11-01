@@ -411,7 +411,8 @@ def read_document_ai(ai: AIClient, media: Media, kind: str | None = None) -> tup
     user = ("Lis ce document d'archives et renvoie le JSON demandé (transcription + extraction). "
             + kind_hint(kind) + f" Nom du fichier : {media.original_filename or media.title or ''}.")
     r = ai.complete(SYSTEM_READ, user, purpose=f"lecture document {media.id}", personal=True, json_mode=True,
-                    max_tokens=8000, attachments=[(data, mime)])
+                    max_tokens=8000, attachments=[(data, mime)],
+                    subject_person_ids=[media.person_id] if media.person_id else None)
     try:
         payload = r.json()
     except ValueError:
@@ -448,7 +449,7 @@ def analyze_media(db: Session, media: Media, *, engine: str | None = None, kind:
             images = load_images(storage_local(media))
             r = ai.complete(SYSTEM_TRANSCRIBE, "Transcris ce document historique. Marque les mots incertains entre [?]. "
                             + kind_hint(kind), purpose=f"transcription document {media.id}", personal=True, images=images,
-                            max_tokens=4000)
+                            max_tokens=4000, subject_person_ids=[media.person_id] if media.person_id else None)
             transcription, method = r.text, f"ai:{r.provider}:{r.model}"
         except (AIUnavailable, RuntimeError) as exc:
             warnings.append(f"Transcription IA indisponible : {exc}")
@@ -474,7 +475,8 @@ def analyze_media(db: Session, media: Media, *, engine: str | None = None, kind:
     if not extraction and ai.available() and transcription and time.monotonic() - t0 < 150:
         try:
             r = ai.complete(SYSTEM_EXTRACT, f"{kind_hint(kind)}\nTranscription :\n\n{transcription}", purpose=f"extraction {media.id}",
-                            personal=True, json_mode=True, max_tokens=4000)
+                            personal=True, json_mode=True, max_tokens=4000,
+                            subject_person_ids=[media.person_id] if media.person_id else None)
             extraction = r.json()
             if not isinstance(extraction, dict):
                 extraction = {}
