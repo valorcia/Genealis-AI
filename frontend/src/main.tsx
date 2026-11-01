@@ -46,6 +46,13 @@ import ArchivesPage from './pages/ArchivesPage'
 import QuestionsPage from './pages/QuestionsPage'
 import AssistantPage from './pages/AssistantPage'
 import SettingsPage from './pages/SettingsPage'
+// v0.3 : livre, import de documents, transparence des recherches
+import BookPage from './pages/BookPage'
+import BookPersonPage from './pages/BookPersonPage'
+import BookAnnexPage from './pages/BookAnnexPage'
+import DocumentImportPage from './pages/DocumentImportPage'
+import ResearchTracePage from './pages/ResearchTracePage'
+import SourcesConsultedPage from './pages/SourcesConsultedPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -83,6 +90,13 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/histoire" element={<StoryPage />} />
             <Route path="/listes/:type" element={<ListPage />} />
             <Route path="/publication/:type" element={<PublicationPage />} />
+            <Route path="/livre" element={<BookPage />} />
+            <Route path="/livre/personne" element={<BookPersonPage />} />
+            <Route path="/livre/personne/:id" element={<BookPersonPage />} />
+            <Route path="/livre/:annex" element={<BookAnnexPage />} />
+            <Route path="/documents/importer" element={<DocumentImportPage />} />
+            <Route path="/enquetes/:taskId" element={<ResearchTracePage />} />
+            <Route path="/sources-consultees" element={<SourcesConsultedPage />} />
             <Route path="/enquetes" element={<ResearchPage />} />
             <Route path="/archives" element={<ArchivesPage />} />
             <Route path="/questions" element={<QuestionsPage />} />

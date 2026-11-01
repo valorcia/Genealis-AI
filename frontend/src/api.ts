@@ -10,6 +10,8 @@ export interface PersonSummary {
   birth_place: string | null; death_place: string | null; occupation: string | null; portrait_media_id: string | null
   /** Âge au décès, ou âge actuel si la personne est vivante (null si non calculable sans inventer). */
   age_years?: number | null; age_display?: string | null; age_detail?: string | null; age_context?: string | null
+  /** Numéros Sosa par rapport à la personne de départ (vide si hors ascendance directe). */
+  sosa?: number[]
 }
 export interface CitationOut { id: string; source_id: string; target_type: string; target_id: string; excerpt: string | null; image_region: Record<string, number> | null; confidence: Confidence; note: string | null; source_title: string | null; source_reliability: string | null }
 export interface EventOut { id: string; person_id: string | null; family_id: string | null; event_type: string; date_original: string | null; date_kind: string; date_start: string | null; date_end: string | null; calendar: string; sort_year: number | null; date_display: string; place_id: string | null; place_name: string | null; place_original: string | null; description: string | null; value_original: string | null; attributes: Record<string, unknown>; confidence: Confidence; citations: CitationOut[] }
@@ -69,7 +71,8 @@ export interface QuickStartIn { people: PersonIn[]; couple?: boolean; marriage_d
 
 export class ApiError extends Error { status: number; constructor(status: number, message: string) { super(message); this.status = status } }
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
+/** Requête typée vers l'API locale (exportée pour les modules d'API par fonctionnalité). */
+export async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(API_BASE + path, { headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' }, ...init })
   if (res.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new CustomEvent('genealis:auth'))
   if (!res.ok) {
@@ -80,7 +83,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
-const q = (o: Record<string, unknown>) => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, String(v)) }); const s = p.toString(); return s ? `?${s}` : '' }
+export const q = (o: Record<string, unknown>) => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, String(v)) }); const s = p.toString(); return s ? `?${s}` : '' }
 
 export const api = {
   health: () => req<{ status: string; version: string; data_dir: string; serverless: boolean; auth_required: boolean; database: string; secret_key_set?: boolean }>('/api/health'),
@@ -199,7 +202,7 @@ export const api = {
 }
 
 export const CONF_LABEL: Record<Confidence, string> = { green: 'Établi', orange: 'À vérifier', red: 'Contradiction', grey: 'Inconnu' }
-export const EVENT_LABEL: Record<string, string> = { birth: 'Naissance', baptism: 'Baptême', marriage: 'Mariage', civil_marriage: 'Mariage civil', religious_marriage: 'Mariage religieux', marriage_banns: 'Publication des bans', marriage_contract: 'Contrat de mariage', marriage_license: 'Licence de mariage', engagement: 'Fiançailles', pacs: 'Concubinage / PACS', separation: 'Séparation', cremation: 'Crémation', education: 'Études', graduation: 'Diplôme', retirement: 'Retraite', confirmation: 'Confirmation', first_communion: 'Première communion', divorce: 'Divorce', death: 'Décès', burial: 'Inhumation', residence: 'Résidence', census: 'Recensement', occupation: 'Profession', military: 'Service militaire', immigration: 'Immigration', emigration: 'Émigration', naturalization: 'Naturalisation', will: 'Testament', probate: 'Succession', other: 'Autre' }
+export const EVENT_LABEL: Record<string, string> = { documents: 'Actes / Documents', adoption: 'Adoption', apprenticeship: 'Apprentissage', adult_baptism: 'Baptême d’adulte', child_baptism: 'Baptême d’enfant', bar_mitzvah: 'Bar Mitsva', bat_mitzvah: 'Bat Mitsva', heredity_certificate: 'Certificat d’hérédité', circumcision: 'Circoncision', confession: 'Confession', consecration: 'Consécration', excommunication: 'Excommunication', miscarriage: 'Fausse couche', military_discharge: 'Fin de service militaire', military_enlistment: 'Incorporation militaire', military_award: 'Récompense militaire', training: 'Formation', blessing: 'Bénédiction', illness: 'Maladie', mission: 'Mission', nationality: 'Nationalité', funeral: 'Obsèques', nickname: 'Surnom', nobility_title: 'Titre de noblesse', land_transaction: 'Transaction foncière', annulment: 'Annulation', conciliation: 'Conciliation', prenuptial_contract: 'Contrat prénuptial', signature: 'Signature', birth: 'Naissance', baptism: 'Baptême', marriage: 'Mariage', civil_marriage: 'Mariage civil', religious_marriage: 'Mariage religieux', marriage_banns: 'Publication des bans', marriage_contract: 'Contrat de mariage', marriage_license: 'Licence de mariage', engagement: 'Fiançailles', pacs: 'Concubinage / PACS', separation: 'Séparation', cremation: 'Crémation', education: 'Études', graduation: 'Diplôme', retirement: 'Retraite', confirmation: 'Confirmation', first_communion: 'Première communion', divorce: 'Divorce', death: 'Décès', burial: 'Inhumation', residence: 'Lieu de résidence', census: 'Recensement', occupation: 'Profession', military: 'Service militaire', immigration: 'Immigration', emigration: 'Émigration', naturalization: 'Naturalisation', will: 'Testament', probate: 'Succession', other: 'Autre' }
 export const RELATION_LABEL: Record<string, string> = { biological: 'biologique', adoptive: 'adoptive', legal: 'légale', step: 'beau-parent', foster: 'nourricière', uncertain: 'incertaine' }
 export const TASK_STATUS_LABEL: Record<string, string> = { queued: 'En file', running: 'En cours', waiting_user: 'Attend votre accord', done: 'Terminée', failed: 'Échec', paused: 'En pause', cancelled: 'Annulée' }
 

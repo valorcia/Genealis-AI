@@ -108,10 +108,10 @@ def compute_age(p: Person, birth: Optional[Event], death: Optional[Event]) -> di
     return {"age_years": years, "age_display": f"≈ {years} an{'s' if years > 1 else ''}", "age_detail": None, "age_context": context}
 
 
-def person_summary(db: Session, p: Person) -> PersonSummary:
+def person_summary(db: Session, p: Person, sosa: Optional[dict[str, list[int]]] = None) -> PersonSummary:
     b = _vital(db, p, "birth") or _vital(db, p, "baptism")
     d = _vital(db, p, "death") or _vital(db, p, "burial")
-    return PersonSummary(**compute_age(p, b, d),
+    return PersonSummary(**compute_age(p, b, d), sosa=(sosa or {}).get(p.id, []),
         id=p.id, display_name=p.display_name(), given_names=p.given_names, surname=p.surname,
         married_name=p.married_name, sex=p.sex, confidence=p.confidence, is_root=p.is_root, is_living=p.is_living,
         birth_year=b.sort_year if b else None, death_year=d.sort_year if d else None,
@@ -217,8 +217,11 @@ def siblings_of(db: Session, person_id: str) -> list[Person]:
     return sorted(seen.values(), key=lambda x: (next((e.sort_year for e in x.events if e.event_type == "birth" and e.sort_year), 9999)))
 
 
-def person_detail(db: Session, p: Person) -> PersonDetail:
-    base = person_summary(db, p).model_dump()
+def person_detail(db: Session, p: Person, sosa: Optional[dict[str, list[int]]] = None) -> PersonDetail:
+    from .sosa import sosa_map
+
+    sosa = sosa if sosa is not None else sosa_map(db)
+    base = person_summary(db, p, sosa).model_dump()
     parents = parents_of(db, p.id)
     children = children_of(db, p.id)
     fams = families_of(db, p.id)
@@ -231,10 +234,10 @@ def person_detail(db: Session, p: Person) -> PersonDetail:
     return PersonDetail(
         **base, name_variants=p.name_variants or [], nationality=p.nationality, notes=p.notes,
         confidence_details=p.confidence_details or {}, events=[event_out(db, e) for e in events],
-        parents=[person_summary(db, pp) for pp, _ in parents], parent_relations=[relation_out(r) for _, r in parents],
-        children=[person_summary(db, c) for c, _ in children], child_relations=[relation_out(r) for _, r in children],
-        spouses=[person_summary(db, s) for s in spouses_of(db, p.id)], families=[family_out(db, f) for f in fams],
-        siblings=[person_summary(db, s) for s in siblings_of(db, p.id)], media=[media_out(m) for m in media],
+        parents=[person_summary(db, pp, sosa) for pp, _ in parents], parent_relations=[relation_out(r) for _, r in parents],
+        children=[person_summary(db, c, sosa) for c, _ in children], child_relations=[relation_out(r) for _, r in children],
+        spouses=[person_summary(db, s, sosa) for s in spouses_of(db, p.id)], families=[family_out(db, f) for f in fams],
+        siblings=[person_summary(db, s, sosa) for s in siblings_of(db, p.id)], media=[media_out(m) for m in media],
         citations=citations_for(db, "person", p.id), hypotheses=[hypothesis_out(h) for h in hyps],
         contradictions=[contradiction_out(c) for c in contras], questions=[question_out(q) for q in qs],
         research_status=p.research_status or {}, created_at=p.created_at, updated_at=p.updated_at,

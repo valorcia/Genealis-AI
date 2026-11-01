@@ -22,10 +22,21 @@ def _recalc(db: Session) -> None:
 
 @router.get("", response_model=list[PersonSummary])
 def list_persons(db: Session = Depends(get_session), q: str | None = None, limit: int = Query(200, le=20000), offset: int = 0):
+    from ..services.sosa import sosa_map
+
+    sosa = sosa_map(db)
     if q:
-        return [svc.person_summary(db, p) for p in svc.search_persons(db, q, limit=limit)]
+        return [svc.person_summary(db, p, sosa) for p in svc.search_persons(db, q, limit=limit)]
     rows = db.execute(select(Person).order_by(Person.surname, Person.given_names).limit(limit).offset(offset)).scalars().all()
-    return [svc.person_summary(db, p) for p in rows]
+    return [svc.person_summary(db, p, sosa) for p in rows]
+
+
+@router.get("/sosa/map")
+def sosa_endpoint(root_id: str | None = None, db: Session = Depends(get_session)):
+    """Numéros Sosa de tous les ancêtres de la personne de départ (ou de root_id)."""
+    from ..services.sosa import sosa_map
+
+    return sosa_map(db, root_id)
 
 
 @router.post("", response_model=PersonDetail, status_code=201)
@@ -41,11 +52,14 @@ def create_person(data: PersonIn, db: Session = Depends(get_session)):
 def persons_batch(body: dict, db: Session = Depends(get_session)):
     """Fiches détaillées de plusieurs personnes en un seul appel (arbres et graphiques)."""
     ids = [i for i in (body.get("ids") or []) if isinstance(i, str)][:400]
+    from ..services.sosa import sosa_map
+
+    sosa = sosa_map(db)
     out = []
     for pid in dict.fromkeys(ids):
         p = db.get(Person, pid)
         if p:
-            out.append(svc.person_detail(db, p))
+            out.append(svc.person_detail(db, p, sosa))
     return out
 
 

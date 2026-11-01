@@ -120,6 +120,12 @@ EVENT_TYPES = (
     "marriage_license", "engagement", "pacs", "separation", "divorce", "death", "burial", "cremation",
     "residence", "census", "occupation", "education", "military", "immigration", "emigration", "naturalization",
     "will", "probate", "retirement", "graduation", "confirmation", "first_communion", "other",
+    # Liste élargie (types courants des logiciels de généalogie)
+    "documents", "adoption", "apprenticeship", "adult_baptism", "child_baptism", "bar_mitzvah", "bat_mitzvah",
+    "heredity_certificate", "circumcision", "confession", "consecration", "excommunication", "miscarriage",
+    "military_discharge", "military_enlistment", "military_award", "training", "blessing", "illness", "mission",
+    "nationality", "funeral", "nickname", "nobility_title", "land_transaction", "annulment", "conciliation",
+    "prenuptial_contract", "signature",
 )
 DATE_KINDS = ("exact", "approx", "before", "after", "between", "calculated", "unknown")
 CALENDARS = ("gregorian", "julian", "republican", "hebrew", "unknown")
