@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import { X } from 'lucide-react'
-import { ApiError } from '../../api'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, X } from 'lucide-react'
+import { API_BASE, ApiError } from '../../api'
 
 /** Message d'erreur lisible en français à partir d'une exception quelconque. */
 export function errMsg(e: unknown, fallback = 'Une erreur est survenue'): string {
@@ -69,4 +69,54 @@ export function initials(given: string | null, surname: string | null, fallback:
   const s = (surname ?? '').trim().charAt(0)
   const r = (g + s).toUpperCase()
   return r || fallback.trim().charAt(0).toUpperCase() || '?'
+}
+
+/** Âge lisible : « 82 ans (82 a 5 m 12 j) au décès », « ≈ 71 ans au décès », « 45 ans aujourd'hui ». */
+export function ageText(p: { age_display?: string | null; age_detail?: string | null; age_context?: string | null }): string | null {
+  if (!p.age_display) return null
+  return [p.age_display, p.age_detail ? `(${p.age_detail})` : null, p.age_context].filter(Boolean).join(' ')
+}
+
+/** Accent violet de la « Recherche IA ». */
+export const AI = { color: '#5b3fd6', soft: '#ece6ff', dark: '#3f2aa8' }
+
+/** Pastille ronde avec portrait ou initiales. */
+export function Avatar({ p, size = 44 }: { p: { id: string; given_names: string | null; surname: string | null; display_name: string; sex: 'M' | 'F' | null; portrait_media_id?: string | null }; size?: number }) {
+  const bg = p.sex === 'F' ? 'bg-[#fde3ee] text-[#b0336b]' : p.sex === 'M' ? 'bg-[#dfeafc] text-[#2f6fd1]' : 'bg-mist-200 text-mist-500'
+  const style = { width: size, height: size, fontSize: Math.round(size * 0.36) }
+  if (p.portrait_media_id) return <img src={`${API_BASE}/api/media/${p.portrait_media_id}/file`} alt="" style={style} className="shrink-0 rounded-full object-cover ring-2 ring-white" />
+  return <span style={style} className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-2 ring-white ${bg}`}>{initials(p.given_names, p.surname, p.display_name)}</span>
+}
+
+/**
+ * Carte groupée « à la iOS » repliable, avec pastille d'icône colorée (comme MacFamilyTree).
+ * `id` sert d'ancre de défilement.
+ */
+export function GroupCard({ id, title, icon, tint = '#2f6fd1', count, actions, children, defaultOpen = true, className = '' }: {
+  id?: string; title: ReactNode; icon?: ReactNode; tint?: string; count?: number; actions?: ReactNode; children: ReactNode; defaultOpen?: boolean; className?: string
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section id={id} className={`fade-up scroll-mt-20 overflow-hidden rounded-3xl bg-white shadow-[0_1px_2px_rgba(20,40,80,0.06),0_10px_30px_-18px_rgba(20,40,80,0.35)] ring-1 ring-black/5 ${className}`}>
+      <header className="flex items-center gap-3 px-4 py-3">
+        <button type="button" onClick={() => setOpen((v) => !v)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded={open}>
+          {icon && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: tint }}>{icon}</span>}
+          <span className="min-w-0 truncate text-[17px] font-semibold text-night-900">{title}{count !== undefined && <span className="ml-1 font-normal text-mist-400">({count})</span>}</span>
+          <ChevronDown size={17} className={`ml-auto shrink-0 text-mist-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+        </button>
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      </header>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </section>
+  )
+}
+
+/** Petit bouton texte bleu iOS. */
+export function LinkButton({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
+  return <button type="button" disabled={disabled} onClick={onClick} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[14px] font-medium text-[#2f6fd1] hover:bg-[#2f6fd1]/10 disabled:opacity-40">{children}</button>
+}
+
+/** Mini état vide centré, ton gris. */
+export function SoftEmpty({ title, children }: { title: string; children?: ReactNode }) {
+  return <div className="px-2 py-3 text-center"><div className="text-[15px] font-semibold text-mist-400">{title}</div>{children && <div className="mt-1 text-xs text-mist-400">{children}</div>}</div>
 }
