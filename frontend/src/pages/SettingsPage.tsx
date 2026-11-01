@@ -18,7 +18,7 @@ const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
 const isTab = (v: string | null): v is TabKey => TABS.some((t) => t.key === v)
 
 type Values = Record<string, unknown>
-type Health = { status: string; version: string; data_dir: string; serverless?: boolean; database?: string; auth_required?: boolean }
+type Health = { status: string; version: string; data_dir: string; serverless?: boolean; database?: string; auth_required?: boolean; secret_key_set?: boolean }
 type AiStatus = { provider: string; available: boolean; ok: boolean; message: string; models?: string[] }
 type Backup = { name: string; size: number; created_at: string; encrypted: boolean }
 type Transmission = { id: number; ts: string; provider: string; purpose: string; payload_summary: string; bytes_sent: number; contains_personal_data: boolean; authorized: boolean }
@@ -88,7 +88,7 @@ export default function SettingsPage() {
       {!settings && !loadError && <div className="flex items-center gap-2 text-sm text-mist-500"><Spinner /> Chargement…</div>}
 
       {settings && tab === 'general' && <GeneralTab get={get} set={set} />}
-      {settings && tab === 'ia' && <AiTab get={get} set={set} settings={settings} apiKey={apiKey} setApiKey={setApiKey} removeKey={removeKey} saving={saving} hosted={Boolean(health?.serverless)} />}
+      {settings && tab === 'ia' && <AiTab get={get} set={set} settings={settings} apiKey={apiKey} setApiKey={setApiKey} removeKey={removeKey} saving={saving} hosted={Boolean(health?.serverless)} secretKeyMissing={Boolean(health?.serverless && health && !health.secret_key_set)} />}
       {settings && tab === 'sauvegardes' && <BackupsTab get={get} set={set} health={health} notify={notify} />}
       {tab === 'confidentialite' && <PrivacyTab get={get} />}
       {tab === 'journal' && <JournalTab />}
@@ -152,7 +152,7 @@ function GeneralTab({ get, set }: GetSet) {
   )
 }
 
-function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hosted }: GetSet & { settings: Settings; apiKey: string; setApiKey: (v: string) => void; removeKey: () => void; saving: boolean; hosted: boolean }) {
+function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hosted, secretKeyMissing }: GetSet & { settings: Settings; apiKey: string; setApiKey: (v: string) => void; removeKey: () => void; saving: boolean; hosted: boolean; secretKeyMissing: boolean }) {
   const provider = str(get('ai_provider'), 'none')
   const [models, setModels] = useState<string[] | null>(null)
   const [detecting, setDetecting] = useState(false)
@@ -192,6 +192,7 @@ function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hoste
 
   return (
     <div className="space-y-5">
+      {secretKeyMissing && <div className="flex items-start gap-2 rounded-xl border border-conf-red/40 bg-conf-red/10 px-4 py-3 text-sm"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-conf-red" /><span><strong>Variable SECRET_KEY absente sur l'hébergement.</strong> Les clés API saisies ici seront perdues au prochain redémarrage. Dans Vercel → Settings → Environment Variables, ajoutez <code>SECRET_KEY</code> (phrase longue et aléatoire), redéployez, puis ressaisissez votre clé.</span></div>}
       <Panel title="Fournisseur d'intelligence artificielle">
         <p className="mb-3 text-xs text-mist-500">L'application fonctionne entièrement sans modèle : l'IA n'ajoute que de l'aide à la lecture des actes, à la reformulation et à l'analyse d'intention. Elle ne décide jamais seule d'une filiation.</p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5" role="radiogroup">
@@ -535,6 +536,7 @@ function AboutTab({ health }: { health: Health | null }) {
             <dt className="text-mist-500">État du moteur</dt><dd className="text-night-900">{health ? health.status : 'non joignable'}</dd>
             <dt className="text-mist-500">Mode</dt><dd className="text-night-900">{health ? (health.serverless ? 'Hébergé (Vercel, exécution à la demande)' : 'Local (application de bureau)') : '—'}</dd>
             <dt className="text-mist-500">Base de données</dt><dd className="text-night-900">{health ? (health.database === 'postgresql' ? <span className="chip conf-green">PostgreSQL (Neon) — connectée</span> : <span className="chip conf-orange">SQLite {health.serverless ? '— attention : éphémère en mode hébergé, connectez Neon' : '(fichier local)'}</span>) : '—'}</dd>
+            <dt className="text-mist-500">Clé de chiffrement (SECRET_KEY)</dt><dd className="text-night-900">{health ? (health.secret_key_set ? 'définie' : (health.serverless ? <span className="text-conf-red">absente : les clés API enregistrées seront perdues à chaque redémarrage — définissez SECRET_KEY</span> : 'clé locale sur disque')) : '—'}</dd>
             <dt className="text-mist-500">Mot de passe d'accès</dt><dd className="text-night-900">{health ? (health.auth_required ? 'activé' : <span className="text-conf-orange">désactivé (définissez ACCESS_TOKEN)</span>) : '—'}</dd>
           </dl>
         </div>

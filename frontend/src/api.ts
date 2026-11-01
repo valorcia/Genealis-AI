@@ -62,7 +62,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 const q = (o: Record<string, unknown>) => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, String(v)) }); const s = p.toString(); return s ? `?${s}` : '' }
 
 export const api = {
-  health: () => req<{ status: string; version: string; data_dir: string; serverless: boolean; auth_required: boolean; database: string }>('/api/health'),
+  health: () => req<{ status: string; version: string; data_dir: string; serverless: boolean; auth_required: boolean; database: string; secret_key_set?: boolean }>('/api/health'),
   login: (password: string) => req<{ ok: boolean; auth_required: boolean }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
   runNow: (budget = 50) => req<{ ran: number; locked?: boolean; paused?: boolean; elapsed?: number }>(`/api/research/run${q({ budget })}`, { method: 'POST' }),
   exportJsonUrl: () => `${API_BASE}/api/export/json`,

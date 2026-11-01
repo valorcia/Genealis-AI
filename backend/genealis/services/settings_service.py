@@ -94,6 +94,8 @@ def set_value(db: Session, key: str, value: Any) -> None:
 def all_public(db: Session) -> dict[str, Any]:
     out = dict(DEFAULTS)
     for row in db.query(Setting).all():
+        if row.key.endswith("_lock"):
+            continue
         if row.key in SECRET_KEYS:
             out[row.key + "_set"] = bool(row.value)
         else:

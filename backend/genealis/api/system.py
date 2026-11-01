@@ -37,7 +37,7 @@ def health():
     return {"status": "ok", "version": __version__, "data_dir": str(settings.data_dir), "serverless": settings.serverless,
             "auth_required": bool(settings.access_token),
             "database": "postgresql" if (settings.database_url or "").startswith("postgresql") else "sqlite",
-            "env_detected": detected}
+            "secret_key_set": bool(settings.secret_key), "env_detected": detected}
 
 
 @router.post("/auth/login")
