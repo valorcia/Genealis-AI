@@ -239,9 +239,8 @@ class AIClient:
             if r.status_code == 429:
                 from ..services import cost
 
-                wait = cost.note_rate_limited(self.db, r.text)
-                raise QuotaExceeded(f"Quota Gemini atteint (HTTP 429) : appels suspendus environ {max(1, wait // 60)} min. "
-                                    "Aucun nouvel appel ne sera envoyé avant.", scope="provider", retry_after_s=wait)
+                wait, info = cost.note_rate_limited(self.db, r.text)
+                raise QuotaExceeded(cost.quota_explanation(info, wait), scope="provider", retry_after_s=wait)
             if r.status_code != 200:
                 raise AIUnavailable(f"Gemini HTTP {r.status_code} : {r.text[:200]}")
         except httpx.HTTPError as exc:

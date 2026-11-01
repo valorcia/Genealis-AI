@@ -159,3 +159,48 @@ def test_migration_additive_sur_base_v03(tmp_path):
         assert c.execute(sa.text("SELECT version_num FROM alembic_version")).scalar() == "7b2c4e9a0f11"
         assert c.execute(sa.text("SELECT given_names FROM persons WHERE id='p1'")).scalar() == "Jean"
     eng.dispose()
+
+
+GOOGLE_DAILY_429 = json.dumps({"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "You exceeded your current quota.",
+    "details": [{"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [
+        {"quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+         "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+         "quotaDimensions": {"location": "global", "model": "gemini-3.8-flash"}, "quotaValue": "250"}]},
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "21s"}]}})
+
+
+def test_429_quota_du_jour_attend_le_lendemain(db, monkeypatch):
+    """Quota QUOTIDIEN de Google : aucun nouvel essai avant le renouvellement (et pas toutes les minutes)."""
+    from datetime import datetime
+
+    cfg.set_value(db, "ai_provider", "gemini")
+    cfg.set_value(db, "gemini_api_key", "k")
+    cfg.set_value(db, "allow_external_ai", True)
+    fake = FakeGemini(status=429, text=GOOGLE_DAILY_429)
+    monkeypatch.setattr(httpx, "post", fake.post)
+    with pytest.raises(QuotaExceeded) as exc:
+        AIClient(db).complete("s", "x", personal=False)
+    msg = str(exc.value)
+    assert "quota GRATUIT DU JOUR" in msg and "gemini-3.8-flash" in msg and "250" in msg
+    assert exc.value.retry_after_s > 3600, "un quota du jour n'est pas réessayé au bout d'une minute"
+    until = datetime.fromisoformat(cfg.get(db, "ai_quota_blocked_until"))
+    assert until == cost._next_pacific_midnight()
+    with pytest.raises(QuotaExceeded) as exc2:
+        AIClient(db).complete("s", "y", personal=False)
+    assert "quota GRATUIT DU JOUR" in str(exc2.value) and len(fake.calls) == 1
+    assert cost.summary(db)["quota_detail"]["per_day"] is True
+
+
+def test_429_repetes_attente_croissante(db, monkeypatch):
+    cfg.set_value(db, "ai_provider", "gemini")
+    cfg.set_value(db, "gemini_api_key", "k")
+    cfg.set_value(db, "allow_external_ai", True)
+    fake = FakeGemini(status=429, text=json.dumps({"error": {"details": [{"retryDelay": "10s"}]}}))
+    monkeypatch.setattr(httpx, "post", fake.post)
+    waits = []
+    for i in range(3):
+        cfg.set_value(db, "ai_quota_blocked_until", None)  # délai écoulé
+        with pytest.raises(QuotaExceeded) as exc:
+            AIClient(db).complete("s", f"q{i}", personal=False)
+        waits.append(exc.value.retry_after_s)
+    assert waits[0] >= 59 and waits[1] >= 2 * 59 and waits[2] >= 4 * 59

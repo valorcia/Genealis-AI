@@ -162,8 +162,9 @@ def check_allowed(db: Session, provider: str, model: str | None, purpose: str) -
             until = None
         if until and until > utcnow():
             wait = int((until - utcnow()).total_seconds())
-            _refuse(db, provider, model, purpose, f"Quota du fournisseur atteint : nouveaux appels suspendus jusqu'à "
-                                                  f"{until:%H:%M} UTC (environ {max(1, wait // 60)} min).", "provider", wait)
+            last = cfg.get(db, "ai_quota_last_error") or {}
+            _refuse(db, provider, model, purpose, quota_explanation(last if isinstance(last, dict) else {}, wait),
+                    "provider", wait)
     if provider == "ollama":
         return  # modèle local : pas de quota externe
     daily = int(cfg.get(db, "ai_daily_call_limit", 200) or 0)
@@ -223,16 +224,79 @@ def record(db: Session, *, provider: str, model: str | None, purpose: str, statu
     return row
 
 
-def note_rate_limited(db: Session, body: str) -> int:
-    """Réponse 429 du fournisseur : suspend tous les appels pendant le délai indiqué (sinon 60 s, ou 1 h si quota du jour)."""
-    wait = 60
-    m = re.search(r'"retryDelay"\s*:\s*"(\d+)(?:\.\d+)?s"', body or "")
-    if m:
-        wait = int(m.group(1)) + 2
-    elif re.search(r"per\s*day|PerDay|daily", body or "", re.I):
-        wait = 3600
-    cfg.set_value(db, "ai_quota_blocked_until", (utcnow() + timedelta(seconds=wait)).isoformat(timespec="seconds"))
-    return wait
+def parse_quota_error(body: str) -> dict:
+    """Lit la réponse 429 de Google : quota par minute ou par jour, limite, modèle, délai conseillé."""
+    info: dict[str, Any] = {"per_day": False, "per_minute": False, "quota_id": None, "quota_value": None, "model": None,
+                            "retry_delay_s": None, "message": None}
+    try:
+        err = (json.loads(body or "{}") or {}).get("error") or {}
+    except (ValueError, TypeError):
+        err = {}
+    info["message"] = (err.get("message") or "")[:300] or None
+    for d in err.get("details") or []:
+        for v in d.get("violations") or []:
+            qid = str(v.get("quotaId") or "")
+            info["quota_id"] = info["quota_id"] or qid or None
+            info["quota_value"] = info["quota_value"] or v.get("quotaValue")
+            info["model"] = info["model"] or (v.get("quotaDimensions") or {}).get("model")
+            if "perday" in qid.lower():
+                info["per_day"] = True
+            if "perminute" in qid.lower():
+                info["per_minute"] = True
+        m = re.match(r"(\d+)(?:\.\d+)?s$", str(d.get("retryDelay") or ""))
+        if m:
+            info["retry_delay_s"] = int(m.group(1))
+    if not info["quota_id"] and re.search(r"per\s*day|PerDay|daily", body or "", re.I):
+        info["per_day"] = True
+    if info["retry_delay_s"] is None:
+        m = re.search(r'"retryDelay"\s*:\s*"(\d+)(?:\.\d+)?s"', body or "")
+        if m:
+            info["retry_delay_s"] = int(m.group(1))
+    return info
+
+
+def _next_pacific_midnight() -> datetime:
+    """Les quotas quotidiens de Google repartent à minuit, heure du Pacifique."""
+    from zoneinfo import ZoneInfo
+
+    pt = datetime.now(ZoneInfo("America/Los_Angeles"))
+    nxt = (pt + timedelta(days=1)).replace(hour=0, minute=5, second=0, microsecond=0)
+    return nxt.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+
+def note_rate_limited(db: Session, body: str) -> tuple[int, dict]:
+    """Réponse 429 du fournisseur : suspend TOUS les appels pendant le bon délai.
+
+    Quota du jour → jusqu'au lendemain (minuit, heure du Pacifique) ; sinon délai indiqué par Google, doublé à chaque
+    nouveau refus rapproché (1, 2, 4… min, au plus 1 h) pour ne jamais renvoyer des appels voués à l'échec.
+    """
+    info = parse_quota_error(body)
+    if info["per_day"]:
+        until = _next_pacific_midnight()
+    else:
+        base = max(60, (info["retry_delay_s"] or 60) + 2)
+        recent = int(db.query(func.count(AICallLog.id)).filter(AICallLog.status == "rate_limited",
+                                                                AICallLog.ts >= utcnow() - timedelta(hours=2)).scalar() or 0)
+        until = utcnow() + timedelta(seconds=min(3600, base * (2 ** min(recent, 6))))
+    wait = int((until - utcnow()).total_seconds())
+    cfg.set_value(db, "ai_quota_blocked_until", until.isoformat(timespec="seconds"))
+    cfg.set_value(db, "ai_quota_last_error", {**info, "at": utcnow().isoformat(timespec="seconds"),
+                                              "until": until.isoformat(timespec="seconds")})
+    return wait, info
+
+
+def quota_explanation(info: dict, wait: int) -> str:
+    """Phrase claire pour l'utilisateur à partir du refus de Google."""
+    from zoneinfo import ZoneInfo
+
+    until_paris = (utcnow() + timedelta(seconds=wait)).replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Paris"))
+    model = f" pour le modèle {info['model']}" if info.get("model") else ""
+    limit = f" (limite gratuite : {info['quota_value']} requêtes)" if info.get("quota_value") else ""
+    if info.get("per_day"):
+        return (f"Google a refusé l'appel : le quota GRATUIT DU JOUR de Gemini est épuisé{model}{limit}. Il se renouvelle "
+                f"chaque nuit : GENEALIS ne renverra aucun appel avant {until_paris:%d/%m à %H:%M} (heure de Paris).")
+    return (f"Google a refusé l'appel : trop de requêtes Gemini en peu de temps{model}{limit}. GENEALIS attend "
+            f"{max(1, round(wait / 60))} min (jusqu'à {until_paris:%H:%M}) avant de réessayer, sans rien renvoyer d'ici là.")
 
 
 @contextmanager
@@ -285,6 +349,7 @@ def summary(db: Session) -> dict[str, Any]:
                    "concurrency": cfg.get(db, "ai_max_concurrency", 1)},
         "prices_configured": bool(cfg.get(db, "ai_prices", {})),
         "quota_blocked_until": blocked if blocked and blocked > utcnow().isoformat() else None,
+        "quota_detail": (cfg.get(db, "ai_quota_last_error") or None) if blocked and blocked > utcnow().isoformat() else None,
         "cache": {"enabled": bool(cfg.get(db, "ai_cache_enabled", True)),
                   "entries": int(db.query(func.count(AICacheEntry.key)).scalar() or 0),
                   "hits_total": int(db.query(func.coalesce(func.sum(AICacheEntry.hits), 0)).scalar() or 0)},

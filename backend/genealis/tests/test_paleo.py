@@ -413,7 +413,7 @@ def test_quota_429(client, db, gemini, tmp_path):
     gemini.status = 429
     db.commit()
     res = client.post(f"/api/media/{m2.id}/readings", json={})
-    assert res.status_code == 429 and "Quota Gemini" in res.json()["detail"]
+    assert res.status_code == 429 and "Google a refusé" in res.json()["detail"]
 
 
 def test_api_lecteur_complet(client, db, gemini, tmp_path):
