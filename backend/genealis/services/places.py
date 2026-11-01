@@ -1,9 +1,6 @@
 """Lieux : résolution/création à partir d'un nom libre, géocodage local optionnel."""
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,11 +14,9 @@ def _gazetteer() -> dict[str, dict]:
     """Petit référentiel local de communes (coordonnées) pour fonctionner hors ligne."""
     global _GAZETTEER
     if _GAZETTEER is None:
-        path = Path(__file__).resolve().parent.parent / "data" / "gazetteer.json"
-        _GAZETTEER = {}
-        if path.exists():
-            for row in json.loads(path.read_text(encoding="utf-8")):
-                _GAZETTEER[normalize_name(row["name"])] = row
+        from ..data.gazetteer_data import GAZETTEER
+
+        _GAZETTEER = {normalize_name(row["name"]): row for row in GAZETTEER}
     return _GAZETTEER
 
 

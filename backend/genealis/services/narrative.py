@@ -1,9 +1,6 @@
 """Histoire familiale narrative : chaque phrase est reliée à ses sources. Aucune anecdote inventée."""
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from sqlalchemy.orm import Session
 
 from ..models import Person
@@ -11,8 +8,9 @@ from .persons import citations_for, gendate_of, parents_of, spouses_of, children
 
 
 def historical_events() -> list[dict]:
-    path = Path(__file__).resolve().parent.parent / "data" / "historical_events.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+    from ..data.historical_events_data import HISTORICAL_EVENTS
+
+    return list(HISTORICAL_EVENTS)
 
 
 def _place(ev) -> str | None:
