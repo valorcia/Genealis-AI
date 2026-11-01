@@ -172,8 +172,20 @@ def _excerpt(transcription: str, *needles: Optional[str], width: int = 160) -> O
     return t[:2 * width].strip().replace("\n", " ") + ("…" if len(t) > 2 * width else "")
 
 
-def _date_text(written: Optional[str], iso: Optional[str]) -> Optional[str]:
-    return written or iso
+def _elide(text: str) -> str:
+    """« de Anna » → « d'Anna » (devant un nom commençant par une voyelle)."""
+    return re.sub(r"\b([Dd])e ([AEIOUYÉÈÊÀÂÎÔ])", r"\1'\2", text)
+
+
+def _when(date: Optional[str], written: Optional[str] = None, quote: bool = True) -> Optional[str]:
+    """Date lisible (12/04/1956) suivie de la forme écrite dans l'acte quand elle diffère."""
+    gd = parse_gendate(date)
+    if gd.kind == "unknown":
+        return written or date
+    shown = gd.display()
+    if quote and written and written.strip() != (date or "").strip() and not re.match(r"^[\d/ .-]+$", written.strip()):
+        shown += f" (« {written.strip()} »)"
+    return shown
 
 
 # ------------------------------------------------------------------ personnes extraites
@@ -504,6 +516,7 @@ def _add_action(ctx: Ctx, aid: str, kind: str, group: str, label: str, *, detail
                 requires: list[int] | None = None, recommended: bool = True, mode: Optional[str] = None,
                 payload: dict | None = None, conflict: dict | None = None) -> dict:
     requires = sorted(set(requires or []))
+    label = _elide(label)
     if any(a["id"] == aid for a in ctx.actions):
         return next(a for a in ctx.actions if a["id"] == aid)
     checked = recommended and all(ctx.checked_person.get(i, False) for i in requires)
@@ -585,7 +598,7 @@ def _event_action(ctx: Ctx, aid: str, etype: str, *, idx: Optional[int] = None, 
         group = "verify"
         t, d = conflict["tree"], conflict["document"]
         label = (f"Contradiction à vérifier : {EVENT_FR.get(etype, etype).lower()} de {who} — l'acte indique "
-                 f"{d['date'] or '?'}{(' à ' + d['place']) if d['place'] else ''}, l'arbre indique "
+                 f"{_when(d['date'], date_written, quote=False) or '?'}{(' à ' + d['place']) if d['place'] else ''}, l'arbre indique "
                  f"{t['date'] or '?'}{(' à ' + t['place']) if t['place'] else ''}")
         description = "L'arbre ne sera pas modifié : une question « contradiction à vérifier » sera créée."
     payload = {"event_type": etype, "idx": idx, "couple": list(couple) if couple else None, "date": date,
@@ -806,7 +819,7 @@ def _build_actions(ctx: Ctx) -> None:
                 ex_p = _existing_person(ctx, i)
                 if ex_p is None or not any(e.event_type in ("death", "burial") for e in ex_p.events):
                     _event_action(ctx, f"event:death:{i}", "death", idx=i, date=f"avant {gd.start}",
-                                  date_written=f"avant le {act_written or gd.start}",
+                                  date_written=f"avant le {re.sub(r'^le ', '', act_written or gd.display())}",
                                   description="Mentionné(e) comme décédé(e) dans le document.", recommended=major)
         if p.get("occupation") and major:
             ex_p = _existing_person(ctx, i)
@@ -1278,12 +1291,12 @@ def _apply_event(run: _Run, a: dict, people: dict[int, dict], ask, *, primary: b
             e = same[0]
             eplace = e.place.display() if e.place else e.place_original
             if not (dates_compatible(e, gd) and _place_compatible(eplace, place)):
-                text = (f"{EVENT_FR.get(etype, etype).lower()} de {who} : l'acte indique {written or pl.get('date') or '?'}"
+                text = (f"{EVENT_FR.get(etype, etype).lower()} de {who} : l'acte indique {_when(pl.get('date'), written, quote=False) or '?'}"
                         f"{(' à ' + place) if place else ''}, l'arbre indique {e.date_original or e.date_start or '?'}"
                         f"{(' à ' + eplace) if eplace else ''}")
                 _ask_conflict(run, a, person or (run.persons[idxs[0]] if idxs else None), text,
                               [f"Arbre : {e.date_original or e.date_start or '?'}{(' — ' + eplace) if eplace else ''}",
-                               f"Document : {written or pl.get('date') or '?'}{(' — ' + place) if place else ''}"],
+                               f"Document : {_when(pl.get('date'), written) or '?'}{(' — ' + place) if place else ''}"],
                               {"event_id": e.id, "event_type": etype, "date": pl.get("date"), "date_original": written, "place": place}, ask)
                 return
             target = e
@@ -1328,7 +1341,7 @@ def _apply_event(run: _Run, a: dict, people: dict[int, dict], ask, *, primary: b
                            confidence=conf, family_id=family.id if family else None))
     run.cite("event", ev.id, excerpt, conf)
     run.summary["events"].append({"id": ev.id, "event_type": etype, "person_id": ev.person_id, "family_id": ev.family_id, "mode": "added"})
-    run.log(f"{EVENT_FR.get(etype, etype).lower()} ajouté(e) pour {who}" + (f" ({ev.date_original or ''} {place or ''})".rstrip() if (ev.date_original or place) else ""),
+    run.log(f"{EVENT_FR.get(etype, etype).lower()} ajouté(e) pour {who}" + (f" ({', '.join(x for x in (_when(pl.get('date'), None), place) if x)})" if (pl.get("date") or place) else ""),
             person.id if person else None)
     if person is not None:
         db.refresh(person)

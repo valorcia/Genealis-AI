@@ -74,7 +74,7 @@ export function TaskLine({ t, showPerson = false }: { t: TraceTaskBrief; showPer
         <span className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-mist-400">
           <span>{shortDate(t.finished_at ?? t.created_at)}</span>
           {sites.length > 0 && <span aria-hidden>·</span>}
-          {sites.slice(0, 5).map((x, i) => <span key={i} className={`rounded-full px-1.5 py-0.5 ${x.status === 'ok' ? 'bg-[#e3f4e6] text-[#2f6b3b]' : x.status === 'error' ? 'bg-[#fde8e6] text-[#7d2b22]' : 'bg-[#f1f2f6] text-mist-500'}`}>{x.site ?? x.name}</span>)}
+          {sites.slice(0, 5).map((x, i) => <span key={i} className={`rounded-full px-1.5 py-0.5 ${x.status === 'ok' ? 'bg-[#e3f4e6] text-[#2f6b3b]' : x.status === 'error' ? 'bg-[#fde8e6] text-[#7d2b22]' : 'bg-[#f1f2f6] text-mist-500'}`}>{x.connector_id === 'gemini_web' ? 'Gemini' : x.site ?? x.name}</span>)}
           {sites.length > 5 && <span>+{sites.length - 5}</span>}
         </span>
       </span>

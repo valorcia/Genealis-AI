@@ -1,0 +1,165 @@
+/*
+ * Livre de famille — mise en page « livre imprimé » (styles propres aux pages /livre).
+ * Polices Alegreya / Alegreya SC chargées globalement (index.css) ; repli Georgia.
+ */
+.book-root {
+  --bk-ink: #2a2219;
+  --bk-muted: #85785f;
+  --bk-sepia: #7a4f2a;
+  --bk-gold: #a98843;
+  --bk-gold-deep: #876a2e;
+  --bk-box: #f3e9d8;
+  --bk-rule: rgb(122 79 42 / 0.22);
+  --bk-page: #fcf8ef;
+  --bk-red: #7a1f12;
+  font-family: "Alegreya", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  color: var(--bk-ink);
+}
+.book-sc { font-family: "Alegreya SC", "Alegreya", Georgia, serif; }
+
+/* Bureau gris clair sur lequel reposent les pages */
+.book-desk {
+  border-radius: 22px;
+  background: linear-gradient(180deg, #e9e6df 0%, #e3dfd6 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), inset 0 0 0 1px rgb(0 0 0 / 0.04);
+  padding: 22px 10px 34px;
+}
+@media (min-width: 640px) { .book-desk { padding: 34px 24px 48px; } }
+
+/* Page de papier */
+.book-page {
+  position: relative;
+  max-width: 800px;
+  margin: 0 auto 26px;
+  padding: 26px 20px 30px;
+  background-color: var(--bk-page);
+  background-image:
+    radial-gradient(130% 80% at 0% 0%, rgb(255 255 255 / 0.65) 0%, rgb(255 255 255 / 0) 55%),
+    radial-gradient(120% 90% at 100% 100%, rgb(169 136 67 / 0.07) 0%, rgb(169 136 67 / 0) 60%),
+    repeating-linear-gradient(33deg, rgb(110 84 40 / 0.018) 0 1px, transparent 1px 3px);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.04), 0 18px 34px -20px rgb(40 30 15 / 0.45), 0 0 0 1px rgb(120 96 52 / 0.1);
+  font-size: 16px;
+  line-height: 1.62;
+}
+@media (min-width: 640px) { .book-page { padding: 40px 64px 44px; font-size: 16.5px; } }
+.book-page.is-cover { padding-top: 56px; padding-bottom: 56px; text-align: center; }
+
+.book-runhead {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-family: "Inter", system-ui, sans-serif; font-size: 9.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--bk-muted); padding-bottom: 10px; margin-bottom: 22px; border-bottom: 1px solid rgb(122 79 42 / 0.12);
+}
+.book-folio { margin-top: 34px; text-align: center; font-size: 12.5px; color: var(--bk-muted); font-variant-numeric: oldstyle-nums; }
+
+.book-eyebrow { font-family: "Alegreya SC", Georgia, serif; font-size: 13.5px; letter-spacing: 0.08em; color: var(--bk-gold-deep); }
+.book-h1 { font-family: "Alegreya SC", "Alegreya", Georgia, serif; font-weight: 700; font-size: 30px; line-height: 1.08; color: var(--bk-ink); letter-spacing: 0.01em; margin: 2px 0 4px; }
+@media (min-width: 640px) { .book-h1 { font-size: 38px; } }
+.book-dates { font-size: 15px; color: var(--bk-gold-deep); letter-spacing: 0.04em; font-variant-numeric: lining-nums tabular-nums; }
+.book-title-rule { height: 1px; margin: 14px 0 20px; background: linear-gradient(90deg, var(--bk-gold) 0%, rgb(169 136 67 / 0.3) 60%, transparent 100%); }
+
+.book-h2 {
+  font-family: "Alegreya SC", "Alegreya", Georgia, serif; font-weight: 700; font-size: 19px; color: var(--bk-sepia);
+  margin: 30px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--bk-rule); letter-spacing: 0.01em;
+  break-after: avoid;
+}
+.book-h2:first-child { margin-top: 0; }
+.book-h3 { font-family: "Alegreya SC", Georgia, serif; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: var(--bk-gold-deep); margin: 0 0 6px; }
+
+.book-text p { margin: 0 0 0.8em; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+.book-text p.is-first::first-letter {
+  float: left; font-family: "Alegreya", Georgia, serif; font-weight: 700; font-size: 3.35em; line-height: 0.86;
+  padding: 0.04em 0.09em 0 0; color: var(--bk-sepia);
+}
+.book-text sup.book-ref { font-family: "Inter", system-ui, sans-serif; font-size: 9.5px; font-weight: 600; color: var(--bk-gold-deep); margin-left: 1px; }
+.book-text sup.book-ref a { text-decoration: none; color: inherit; }
+.book-text .is-sosa { font-style: italic; }
+
+/* Encadrés de contexte */
+.book-box {
+  margin: 14px 0 18px; padding: 11px 15px 12px; background: var(--bk-box); border-left: 3px solid var(--bk-gold);
+  font-size: 14.5px; line-height: 1.52; break-inside: avoid; overflow: hidden;
+}
+.book-box-title { font-family: "Alegreya SC", Georgia, serif; font-weight: 700; font-size: 14px; color: var(--bk-sepia); letter-spacing: 0.03em; margin-bottom: 3px; }
+.book-box-kicker { font-family: "Inter", system-ui, sans-serif; font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bk-muted); }
+.book-box-src { margin-top: 6px; font-size: 11.5px; font-style: italic; color: var(--bk-muted); }
+.book-box-src a { color: var(--bk-gold-deep); text-decoration: underline; text-underline-offset: 2px; }
+.book-box-media { float: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin: 2px 0 6px 14px; }
+.book-box-media img.photo { width: 128px; height: 96px; object-fit: cover; border: 1px solid rgb(0 0 0 / 0.08); }
+.book-box-media img.arms { width: 54px; height: auto; }
+.book-box.is-ai { background: #f1edfc; border-left-color: #5b3fd6; }
+.book-box.is-ai .book-box-title { color: #4630a8; }
+
+.book-epoch { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; row-gap: 8px; margin-top: 6px; }
+.book-epoch .yr { color: var(--bk-gold-deep); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+
+/* Tableaux Famille / Repères */
+.book-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.book-table th { width: 30%; text-align: left; vertical-align: top; font-weight: 400; color: var(--bk-muted); font-size: 13px; padding: 5px 10px 5px 0; }
+.book-table td { padding: 5px 0; vertical-align: top; }
+.book-table tr { border-bottom: 1px dotted rgb(60 40 20 / 0.22); break-inside: avoid; }
+.book-table a { color: inherit; text-decoration: none; border-bottom: 1px solid rgb(169 136 67 / 0.45); }
+.book-table a:hover { color: var(--bk-sepia); }
+
+.book-list { margin: 0; padding-left: 1.1em; font-size: 14.5px; }
+.book-list li { margin: 0 0 6px; padding-left: 2px; }
+.book-list li::marker { color: var(--bk-gold); }
+.book-small { font-size: 12.5px; color: var(--bk-muted); }
+.book-link { color: var(--bk-ink); text-decoration: none; border-bottom: 1px solid rgb(169 136 67 / 0.5); }
+.book-link:hover { color: var(--bk-sepia); }
+
+/* Sommaire */
+.book-toc-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; color: var(--bk-ink); text-decoration: none; }
+.book-toc-row .dots { flex: 1; border-bottom: 1px dotted rgb(60 40 20 / 0.35); transform: translateY(-4px); min-width: 16px; }
+.book-toc-row:hover .nm { color: var(--bk-sepia); }
+.book-sosa { display: inline-flex; min-width: 2.2em; justify-content: center; font-family: "Inter", system-ui, sans-serif; font-size: 10.5px; font-weight: 700; color: var(--bk-gold-deep); background: rgb(169 136 67 / 0.12); border-radius: 999px; padding: 1px 6px; font-variant-numeric: tabular-nums; }
+
+/* Carte « Mes lieux de vie » au style ancien */
+.book-map {
+  position: relative; height: 260px; border: 1px solid #c9b994; overflow: hidden; break-inside: avoid;
+  background-color: #efe3c6;
+  background-image:
+    radial-gradient(circle at 30% 40%, rgb(255 255 255 / 0.35), transparent 60%),
+    repeating-linear-gradient(0deg, rgb(122 79 42 / 0.06) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgb(122 79 42 / 0.06) 0 1px, transparent 1px 28px);
+}
+@media (min-width: 640px) { .book-map { height: 340px; } }
+.book-map .leaflet-container { background: transparent; font-family: "Alegreya", Georgia, serif; }
+.book-map .leaflet-tile-pane { filter: sepia(0.78) saturate(0.62) hue-rotate(-10deg) contrast(0.9) brightness(1.04); opacity: 0.92; }
+.book-map::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 450;
+  box-shadow: inset 0 0 60px rgb(110 70 20 / 0.28); background: radial-gradient(ellipse at center, transparent 55%, rgb(150 110 50 / 0.12) 100%);
+}
+.book-pin { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; background: var(--bk-red, #7a1f12); color: #fcf8ef; font: 700 11px/1 "Inter", system-ui, sans-serif; border: 2px solid #fcf8ef; box-shadow: 0 1px 4px rgb(0 0 0 / 0.35); }
+.book-pin-label { font-family: "Alegreya", Georgia, serif; font-size: 11.5px; color: #3b2a14; background: rgb(252 248 239 / 0.85); padding: 0 4px; border-radius: 3px; white-space: nowrap; }
+.book-legend { display: grid; grid-template-columns: 1fr; gap: 3px 22px; margin-top: 8px; font-size: 13px; }
+@media (min-width: 640px) { .book-legend { grid-template-columns: 1fr 1fr; } }
+.book-legend .yr { color: var(--bk-gold-deep); }
+
+/* Actes */
+.book-figures { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 640px) { .book-figures.two { grid-template-columns: 1fr 1fr; } }
+.book-figure { margin: 0; break-inside: avoid; }
+.book-figure img { width: 100%; max-height: 520px; object-fit: contain; background: #efe8d6; border: 1px solid rgb(0 0 0 / 0.1); }
+.book-figure figcaption { margin-top: 4px; font-size: 12px; color: var(--bk-muted); }
+.book-transcription { white-space: pre-wrap; text-align: justify; font-size: 14.5px; line-height: 1.6; }
+
+/* Impression : A4, un chapitre par série de pages, sans l'interface */
+@page { size: A4; margin: 16mm 15mm 18mm; @bottom-center { content: counter(page); font-family: "Alegreya", Georgia, serif; font-size: 10pt; color: #85785f; } }
+@media print {
+  body:has(.book-root) { background: #fff !important; }
+  body:has(.book-root) :is(#root, #root *):not(.book-root, .book-root *) {
+    overflow: visible !important; height: auto !important; max-height: none !important; min-height: 0 !important;
+    padding: 0 !important; margin: 0 !important; max-width: none !important; box-shadow: none !important; background: transparent !important;
+  }
+  .book-noprint { display: none !important; }
+  .book-desk { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0; }
+  .book-page { max-width: none; margin: 0; padding: 0; box-shadow: none; background: #fff; break-after: page; font-size: 11.5pt; }
+  .book-page:last-child { break-after: auto; }
+  .book-chapter { break-before: page; }
+  .book-chapter:first-child { break-before: auto; }
+  .book-folio { display: none; }
+  .book-map { height: 92mm; }
+  .book-box, .book-figure, .book-table tr, .book-epoch { break-inside: avoid; }
+  .book-text p { orphans: 3; widows: 3; }
+  a { color: inherit !important; }
+}

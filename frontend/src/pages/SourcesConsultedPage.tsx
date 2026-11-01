@@ -126,7 +126,9 @@ function SiteRow({ s }: { s: TraceSite }) {
             {s.last_status && <><span className="text-mist-500">Dernier résultat :</span><OutcomeChip outcome={s.last_status} /></>}
           </div>
           <p className="mt-1 text-[12px] leading-snug text-night-900/75">{s.explanation}{s.last_test_at ? ` (vérifié le ${shortDate(s.last_test_at)})` : ''}</p>
-          {s.last_error && s.last_status && s.last_status !== 'ok' && <p className="mt-0.5 text-[12px] text-conf-red">{s.last_error.slice(0, 220)}</p>}
+          {s.last_error && s.last_status && s.last_status !== 'ok' && !s.explanation.includes(s.last_error) && (
+            <details className="mt-0.5 text-[12px] text-mist-500"><summary className="cursor-pointer text-conf-red">Dernière erreur</summary><p className="mt-0.5 break-words">{s.last_error.slice(0, 300)}</p></details>
+          )}
         </div>
       </div>
     </li>

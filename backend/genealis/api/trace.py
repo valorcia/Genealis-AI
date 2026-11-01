@@ -318,7 +318,7 @@ def _diag_message(cid: str, name: str, res: dict) -> str:
             return "Gemini : clé absente ou recherche web désactivée. " + err
         if st == "degraded":
             return "Gemini répond, mais sans consulter de page web (aucune source renvoyée)."
-        return f"Gemini : appel impossible ({err or 'erreur inconnue'})."
+        return (err if err.startswith("Gemini") else f"Gemini : appel impossible ({err or 'erreur inconnue'})") + ("" if err.endswith(".") else ".")
     if st == "ok":
         extra = det.get("sample_results", det.get("results"))
         return f"{name} : opérationnel" + (f" ({extra} résultat(s) de test)" if isinstance(extra, int) else "") + "."

@@ -254,6 +254,28 @@ def map_findings(data: Any, grounding: dict, connector_id: str = "gemini_web") -
     return out, traced
 
 
+def friendly_gemini_error(msg: str) -> str:
+    """Message compréhensible par un débutant à partir de l'erreur technique de Gemini."""
+    low = msg.lower()
+    m = re.search(r"http (\d{3})", low)
+    code = m.group(1) if m else None
+    if "api key not valid" in low or "api_key_invalid" in low or (code == "400" and "key" in low):
+        reason = "Google refuse la clé Gemini (clé invalide ou supprimée) : vérifiez-la dans Paramètres → Intelligence artificielle"
+    elif code == "429" or "quota" in low or "resource_exhausted" in low:
+        reason = "le quota gratuit de Gemini est épuisé pour le moment : réessayez plus tard"
+    elif code in ("401", "403") or "permission" in low:
+        reason = "Google refuse l'accès avec cette clé (droits insuffisants)"
+    elif code and code.startswith("5"):
+        reason = f"le service Gemini est momentanément indisponible (erreur {code})"
+    elif "injoignable" in low or "connect" in low or "timed out" in low or "timeout" in low:
+        reason = "le service Gemini est injoignable (connexion Internet ou blocage réseau)"
+    elif "bloqué" in low:
+        reason = "la réponse a été bloquée par les filtres de sécurité de Gemini"
+    else:
+        reason = "erreur inattendue de Gemini"
+    return f"Gemini n'a pas pu effectuer la recherche : {reason}"
+
+
 class GeminiWebConnector(ArchiveConnector):
     capabilities = ConnectorCapabilities(
         id="gemini_web", name="Recherche web IA (Gemini + Google Search)", country="*",
@@ -291,7 +313,7 @@ class GeminiWebConnector(ArchiveConnector):
             try:
                 return ai.complete(system, user, purpose=purpose, personal=personal, max_tokens=max_tokens, web_search=True)
             except AIUnavailable as exc:
-                raise RuntimeError(f"Gemini n'a pas pu effectuer la recherche : {exc}") from exc
+                raise RuntimeError(friendly_gemini_error(str(exc))) from exc
 
     async def search(self, query: SearchQuery) -> list[SearchResult]:
         prompt = build_prompt(query)

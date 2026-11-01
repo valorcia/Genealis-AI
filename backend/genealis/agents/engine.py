@@ -171,11 +171,12 @@ class ResearcherAgent:
             return []
         except Exception as exc:
             step["status"] = "failed"
-            step["result"] = {**ctx, **timing(), "status": "error", "count": 0, "results": [], "error": str(exc),
-                              "message": f"{name} n'a pas pu être interrogé ({exc}). Aucun résultat n'a été obtenu de ce site."}
+            technical = str(exc.__cause__ or exc)[:500]
+            step["result"] = {**ctx, **timing(), "status": "error", "count": 0, "results": [], "error": technical,
+                              "message": f"{name} n'a pas pu être interrogé : {exc}. Aucun résultat n'a été obtenu de ce site."}
             log(db, f"{name} : échec ({exc}).", category="error", level="error", task_id=task.id,
                 person_id=task.person_id, connector_id=cid,
-                outcome={"status": "error", "count": 0, "verify_url": ctx["verify_url"], "site": ctx["site"], "error": str(exc)})
+                outcome={"status": "error", "count": 0, "verify_url": ctx["verify_url"], "site": ctx["site"], "error": technical})
             return []
         grounding = getattr(results, "grounding", None)
         n = len(results)

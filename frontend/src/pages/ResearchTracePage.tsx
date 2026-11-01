@@ -80,7 +80,7 @@ export default function ResearchTracePage() {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-white/80">
           <span className="rounded-full bg-white/90 px-0.5 py-0.5 [&_.chip]:!m-0"><TaskStatusChip status={data.status} /></span>
           <span>Lancée le {shortDate(data.started_at ?? data.created_at)}</span>
-          {data.finished_at && <span>· terminée le {shortDate(data.finished_at)}</span>}
+          {data.finished_at && <span>Terminée le {shortDate(data.finished_at)}</span>}
         </div>
         <p className="mt-3 rounded-2xl p-3 text-[15px] leading-snug" style={{ background: 'rgba(255,255,255,0.12)' }}>{data.conclusion}</p>
         <div className="mt-3 grid grid-cols-4 gap-2 text-center">
@@ -106,7 +106,7 @@ export default function ResearchTracePage() {
         {otherSteps.length > 0 && (
           <ul className="mt-4 space-y-1.5 border-t border-black/5 pt-3 text-[13px]">
             {otherSteps.map((st) => (
-              <li key={st.index} className="flex flex-wrap items-center gap-2"><ListChecks size={14} className="text-mist-400" /><span className="text-night-900">{st.label}</span><OutcomeChip outcome={st.status === 'done' ? 'done' : st.status} />{st.result?.note && <span className="text-mist-500">— {st.result.note}</span>}{typeof st.result?.evaluated === 'number' && <span className="text-mist-500">— {st.result.evaluated} résultat(s) comparé(s)</span>}</li>
+              <li key={st.index} className="flex items-start gap-2"><ListChecks size={14} className="mt-0.5 shrink-0 text-mist-400" /><span className="min-w-0"><span className="text-night-900">{st.label}</span> <OutcomeChip outcome={st.status === 'done' ? 'done' : st.status} />{st.result?.note && <span className="text-mist-500"> — {st.result.note}</span>}{typeof st.result?.evaluated === 'number' && <span className="text-mist-500"> — {st.result.evaluated} résultat(s) comparé(s)</span>}</span></li>
             ))}
           </ul>
         )}
@@ -145,9 +145,11 @@ function StepCard({ st }: { st: TraceStep }) {
           {isWeb ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: AI.color }}><Sparkles size={18} /></span> : <SiteIcon domain={domain} name={name} size={36} />}
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold leading-snug text-night-900">{name}</div>
-            {domain && <button onClick={() => st.homepage && openExternal(st.homepage)} className="text-[12px] text-mist-500 hover:text-night-900">{domain}</button>}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <OutcomeChip outcome={outcome} />
+              {domain && <button onClick={() => st.homepage && openExternal(st.homepage)} className="text-[12px] text-mist-500 hover:text-night-900">{isWeb ? 'Gemini · Google Search' : domain}</button>}
+            </div>
           </div>
-          <OutcomeChip outcome={outcome} />
         </div>
         {what && <p className="mt-2 text-[13px] text-night-900"><span className="text-mist-500">Recherché : </span>{what}</p>}
         <div className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-mist-500">
@@ -157,7 +159,7 @@ function StepCard({ st }: { st: TraceStep }) {
         </div>
         {r.message && <p className={`mt-2 text-[13px] leading-snug ${outcome === 'error' ? 'text-conf-red' : outcome === 'restricted' ? 'text-[#8a5a10]' : 'text-night-900/80'}`}>{r.message}</p>}
         {!r.message && st.status === 'pending' && <p className="mt-2 text-[13px] text-mist-500">Ce site n’a pas encore été interrogé.</p>}
-        {r.error && r.message && !r.message.includes(r.error) && <p className="mt-1 text-[12px] text-mist-500">Détail technique : {r.error}</p>}
+        {r.error && r.message && !r.message.includes(r.error) && <details className="mt-1 text-[12px] text-mist-500"><summary className="cursor-pointer">Détail technique</summary><p className="mt-1 break-words">{r.error}</p></details>}
 
         {isWeb && r.grounding && <GeminiTrace g={r.grounding} />}
 
