@@ -62,6 +62,23 @@ def create_all() -> None:
     from . import models  # noqa: F401 - enregistre les tables
 
     engine = get_engine()
+    if engine.dialect.name == "postgresql":
+        # Plusieurs instances serverless peuvent démarrer en même temps : un verrou consultatif PostgreSQL
+        # sérialise la création des tables et les migrations (sinon CREATE TABLE concurrents → erreur de démarrage).
+        from sqlalchemy import text
+
+        with engine.connect() as lock_conn:
+            lock_conn.execute(text("SELECT pg_advisory_lock(726354)"))
+            try:
+                _create_and_migrate(engine)
+            finally:
+                lock_conn.execute(text("SELECT pg_advisory_unlock(726354)"))
+                lock_conn.commit()
+        return
+    _create_and_migrate(engine)
+
+
+def _create_and_migrate(engine) -> None:
     Base.metadata.create_all(engine)
     _stamp_or_upgrade(engine)
     from .services.fts import ensure_fts
