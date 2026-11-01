@@ -7,6 +7,7 @@ export type AddParent = (child: PersonSummary, kind: 'father' | 'mother') => voi
 
 /** Ascendance horizontale (personne à gauche, parents vers la droite ; dir = -1 pour l'inverse). */
 export function horizontalPedigree(bySosa: Map<number, TreeNode>, gens: number, opts: CardOptions, { dir = 1, originX = 0, slots = true, onAdd, keyPrefix = '', skipRoot = false }: { dir?: 1 | -1; originX?: number; slots?: boolean; onAdd?: AddParent; keyPrefix?: string; skipRoot?: boolean } = {}) {
+  if (!bySosa.has(1)) return { cards: [] as PlacedCard[], connectors: [] as Connector[] }
   const { w, h } = cardSize('card', opts)
   const COL = w + 64
   const slotsList = layoutSosa(bySosa, gens, h, 14, slots, 4)
@@ -39,6 +40,7 @@ export function horizontalPedigree(bySosa: Map<number, TreeNode>, gens: number, 
 
 /** Ascendance verticale vers le haut (sablier) : la personne de départ en (0, 0). */
 export function verticalAncestors(bySosa: Map<number, TreeNode>, gens: number, opts: CardOptions, { slots = true, onAdd, rowGap = 58 }: { slots?: boolean; onAdd?: AddParent; rowGap?: number } = {}) {
+  if (!bySosa.has(1)) return { cards: [] as PlacedCard[], connectors: [] as Connector[] }
   const { w, h } = cardSize('card', opts)
   const list = layoutSosa(bySosa, gens, w, 18, slots, 6)
   const pos = new Map<number, { x: number; y: number }>()
