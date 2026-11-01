@@ -54,7 +54,8 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       const values: Values = { ...draft }
-      if (apiKey.trim()) values.anthropic_api_key = apiKey.trim()
+      const keyName = str(get('ai_provider')) === 'gemini' ? 'gemini_api_key' : 'anthropic_api_key'
+      if (apiKey.trim()) values[keyName] = apiKey.trim()
       const s = await api.patchSettings(values)
       setSettings(s); setDraft({}); setApiKey('')
       await refreshSettings()
@@ -65,7 +66,7 @@ export default function SettingsPage() {
 
   const removeKey = async () => {
     setSaving(true)
-    try { const s = await api.patchSettings({ anthropic_api_key: '' }); setSettings(s); setApiKey(''); await refreshSettings(); notify('success', 'Clé API supprimée.') }
+    try { const s = await api.patchSettings({ [str(get('ai_provider')) === 'gemini' ? 'gemini_api_key' : 'anthropic_api_key']: '' }); setSettings(s); setApiKey(''); await refreshSettings(); notify('success', 'Clé API supprimée.') }
     catch (e) { notify('error', errMsg(e, 'Impossible de supprimer la clé.')) } finally { setSaving(false) }
   }
 
@@ -87,7 +88,7 @@ export default function SettingsPage() {
       {!settings && !loadError && <div className="flex items-center gap-2 text-sm text-mist-500"><Spinner /> Chargement…</div>}
 
       {settings && tab === 'general' && <GeneralTab get={get} set={set} />}
-      {settings && tab === 'ia' && <AiTab get={get} set={set} settings={settings} apiKey={apiKey} setApiKey={setApiKey} removeKey={removeKey} saving={saving} />}
+      {settings && tab === 'ia' && <AiTab get={get} set={set} settings={settings} apiKey={apiKey} setApiKey={setApiKey} removeKey={removeKey} saving={saving} hosted={Boolean(health?.serverless)} />}
       {settings && tab === 'sauvegardes' && <BackupsTab get={get} set={set} health={health} notify={notify} />}
       {tab === 'confidentialite' && <PrivacyTab get={get} />}
       {tab === 'journal' && <JournalTab />}
@@ -151,7 +152,7 @@ function GeneralTab({ get, set }: GetSet) {
   )
 }
 
-function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving }: GetSet & { settings: Settings; apiKey: string; setApiKey: (v: string) => void; removeKey: () => void; saving: boolean }) {
+function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hosted }: GetSet & { settings: Settings; apiKey: string; setApiKey: (v: string) => void; removeKey: () => void; saving: boolean; hosted: boolean }) {
   const provider = str(get('ai_provider'), 'none')
   const [models, setModels] = useState<string[] | null>(null)
   const [detecting, setDetecting] = useState(false)
@@ -185,12 +186,42 @@ function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving }: Get
     <div className="space-y-5">
       <Panel title="Fournisseur d'intelligence artificielle">
         <p className="mb-3 text-xs text-mist-500">L'application fonctionne entièrement sans modèle : l'IA n'ajoute que de l'aide à la lecture des actes, à la reformulation et à l'analyse d'intention. Elle ne décide jamais seule d'une filiation.</p>
-        <div className="grid gap-3 md:grid-cols-3" role="radiogroup">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5" role="radiogroup">
+          <RadioCard active={provider === 'manual'} onClick={() => set('ai_provider', 'manual')} title="Claude / ChatGPT (abonnement)" desc="Copier-coller : l'app prépare le texte, vous collez la réponse. Gratuit avec votre abonnement, rien d'automatique." />
+          <RadioCard active={provider === 'gemini'} onClick={() => set('ai_provider', 'gemini')} title="Gemini (Google, gratuit)" desc="Clé gratuite sans carte bancaire ; lecture automatique des actes, y compris depuis l'application hébergée." />
           <RadioCard active={provider === 'none'} onClick={() => set('ai_provider', 'none')} title="Aucun" desc="Règles seules, gratuit, hors ligne." />
-          <RadioCard active={provider === 'ollama'} onClick={() => set('ai_provider', 'ollama')} title="Ollama" desc="Modèle local, gratuit ; rien ne quitte votre ordinateur." />
-          <RadioCard active={provider === 'anthropic'} onClick={() => set('ai_provider', 'anthropic')} title="Claude via API" desc="Hébergé, payant, clé requise ; transmission externe à autoriser." />
+          <RadioCard active={provider === 'ollama'} onClick={() => set('ai_provider', 'ollama')} title="Ollama (PC)" desc={hosted ? 'Indisponible en version hébergée : Ollama tourne sur votre ordinateur, pas sur Vercel.' : 'Modèle local, gratuit ; rien ne quitte votre ordinateur.'} />
+          <RadioCard active={provider === 'anthropic'} onClick={() => set('ai_provider', 'anthropic')} title="Claude via API" desc="Payant à l'usage (clé API, distincte de l'abonnement claude.ai)." />
         </div>
+        {provider === 'ollama' && hosted && <div className="mt-3 flex items-start gap-2 rounded-xl border border-conf-orange/40 bg-conf-orange/10 px-4 py-3 text-sm"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-conf-orange" /><span>Cette installation est hébergée sur Vercel : elle ne peut pas joindre un Ollama installé sur votre PC (adresse 127.0.0.1). Choisissez « Gemini (gratuit) » ou « Claude / ChatGPT (abonnement) ».</span></div>}
       </Panel>
+
+      {provider === 'manual' && (
+        <Panel title="Claude / ChatGPT avec votre abonnement (copier-coller)">
+          <ol className="list-decimal space-y-1 pl-5 text-sm">
+            <li>Ouvrez un document dans <Link to="/archives?tab=documents" className="text-gold-600 underline">Archives et documents</Link> et cliquez « Analyser avec Claude / ChatGPT ».</li>
+            <li>L'application copie le texte à coller et vous donne l'image à joindre dans claude.ai ou chatgpt.com (votre abonnement habituel).</li>
+            <li>Collez la réponse de l'assistant dans l'application : la transcription, les personnes et les dates sont intégrées, puis vérifiées comme n'importe quelle hypothèse.</li>
+          </ol>
+          <p className="mt-3 text-xs text-mist-500">Les abonnements claude.ai et ChatGPT n'offrent pas d'accès automatique aux applications tierces : ce mode respecte leurs conditions d'utilisation. Pour une lecture automatique gratuite, choisissez Gemini.</p>
+        </Panel>
+      )}
+
+      {provider === 'gemini' && (
+        <Panel title="Gemini (Google AI Studio) — niveau gratuit">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Modèle"><input className="input" value={str(get('gemini_model'), 'gemini-2.5-flash')} onChange={(e) => set('gemini_model', e.target.value)} /></Field>
+            <Field label="Clé API Gemini (gratuite)">
+              <input type="password" autoComplete="off" className="input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={settings.gemini_api_key_set ? '•••••••••••• (remplacer)' : 'AIza…'} />
+              <span className="mt-1 flex items-center gap-2 text-xs">
+                {settings.gemini_api_key_set ? <span className="inline-flex items-center gap-1 text-sage-600"><KeyRound size={12} /> Clé enregistrée (chiffrée)</span> : <span className="text-mist-500">Créez une clé gratuite sur aistudio.google.com/apikey (compte Google, sans carte bancaire).</span>}
+                {settings.gemini_api_key_set && <button className="text-conf-red hover:underline disabled:opacity-50" onClick={removeKey} disabled={saving}>Supprimer la clé</button>}
+              </span>
+            </Field>
+          </div>
+          <p className="mt-3 text-xs text-mist-500">Pensez à activer « Autoriser l'envoi de données à un fournisseur d'IA externe » ci-dessous : les images d'actes sont transmises à Google pour lecture.</p>
+        </Panel>
+      )}
 
       {provider === 'ollama' && (
         <Panel title="Ollama (local)">
@@ -225,7 +256,7 @@ function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving }: Get
       {provider !== 'none' && (
         <Panel title="Transmission de données">
           <div className="space-y-4">
-            <Toggle checked={bool(get('allow_external_ai'))} onChange={(v) => set('allow_external_ai', v)} label="Autoriser l'envoi de données à un fournisseur d'IA externe" hint="Nécessaire pour Claude via API. Inutile avec Ollama en local." />
+            <Toggle checked={bool(get('allow_external_ai'))} onChange={(v) => set('allow_external_ai', v)} label="Autoriser l'envoi de données à un fournisseur d'IA externe" hint="Nécessaire pour Gemini et Claude via API. Inutile avec Ollama en local ou en mode copier-coller." />
             {bool(get('allow_external_ai')) && (
               <div className="flex items-start gap-3 rounded-xl border border-conf-red/40 bg-gold-500/10 px-4 py-3 text-sm text-night-900">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0 text-conf-red" />

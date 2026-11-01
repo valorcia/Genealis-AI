@@ -42,3 +42,27 @@ def test_extraction_par_regles():
     roles = {p["role"]: p["surname"] for p in ex["persons"]}
     assert roles["father"].startswith("Louis") and roles["mother"].startswith("Marie")
     assert "cultivateur" in ex["occupations"] and ex["place"] == "Nancy"
+
+
+def test_reponse_collee_claude_chatgpt(db, tmp_path):
+    from genealis.ai.documents import manual_prompt, parse_manual_answer
+
+    f = build_fictional_family(db)
+    from PIL import Image
+
+    img = tmp_path / "acte2.png"
+    Image.new("RGB", (100, 100), "white").save(img)
+    m = import_file(db, img, person_id=f["father"].id, title="Acte collé")
+    assert "===JSON===" in manual_prompt(m)
+    answer = ("TRANSCRIPTION :\nL'an mil neuf cent soixante, est né Pierre, fils de Jean Marie [?Durant], cheminot, et de Marie Kowalski.\n"
+              "===JSON===\n```json\n{\"language\": \"fr\", \"document_type\": \"birth\", \"date\": \"3 février 1960\", \"place\": \"Nancy\", "
+              "\"persons\": [{\"role\": \"subject\", \"given_names\": \"Pierre\", \"surname\": \"Durant\", \"confidence\": \"high\"}, "
+              "{\"role\": \"father\", \"given_names\": \"Jean Marie\", \"surname\": \"Durant\", \"occupation\": \"cheminot\", \"confidence\": \"medium\"}, "
+              "{\"role\": \"mother\", \"given_names\": \"Marie\", \"surname\": \"Kowalski\", \"confidence\": \"high\"}], \"relations\": [], "
+              "\"uncertain_passages\": [\"Durant\"], \"translation_fr\": null}\n```")
+    res = parse_manual_answer(answer)
+    assert res.method == "manual_llm" and res.uncertain == ["Durant"] and res.extraction["date_normalized"]["start"] == "1960-02-03"
+    assert [p["role"] for p in res.extraction["persons"]] == ["subject", "father", "mother"]
+    # Réponse sans JSON : repli par règles, jamais d'échec silencieux
+    res2 = parse_manual_answer("est né Jean, fils de Louis Dupont et de Marie Durand")
+    assert res2.extraction["method"] == "manual_llm" and any(p["role"] == "father" for p in res2.extraction["persons"])

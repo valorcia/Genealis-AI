@@ -81,10 +81,18 @@ L'assistant demande vos informations et celles de vos parents/grands-parents (le
 ## Sources d'archives
 Voir `ARCHIVE_CONNECTORS.md` (généré depuis le code). Toutes les sources sont **gratuites et sans clé API**. Important : un connecteur n'est affiché comme opérationnel qu'après un test réel réussi depuis votre machine (« Enquêtes IA → Connecteurs → Tester »). Le fichier des décès INSEE peut être importé localement (open data) pour des recherches entièrement hors ligne.
 
-## IA documentaire
-- OCR Tesseract (imprimés) si installé — `winget install UB-Mannheim.TesseractOCR` puis indiquer le chemin dans Paramètres.
-- Modèle de vision local via Ollama (`ollama pull llava`) ou Claude (clé API, payant, sur autorisation explicite) pour l'écriture manuscrite.
-- Sans moteur, les documents sont conservés intacts et la transcription peut être saisie à la main.
+## IA documentaire — quelles options, et à quel prix
+| Option | Coût | Automatique ? | Fonctionne sur Vercel ? |
+|---|---|---|---|
+| **Claude / ChatGPT avec votre abonnement** (copier-coller) | inclus dans votre abonnement | non : l'app prépare le texte à coller avec l'image, vous collez la réponse | oui |
+| **Gemini (Google AI Studio)** | gratuit (clé sans carte bancaire sur aistudio.google.com/apikey) | oui, lecture des actes manuscrits | oui |
+| Ollama (modèle local, `ollama pull llava`) | gratuit | oui | non : seulement avec l'application de bureau sur le même PC |
+| Claude via API (Anthropic) | payant à l'usage, clé API distincte de l'abonnement | oui | oui |
+| Tesseract (OCR classique) | gratuit | oui, mais imprimés seulement | non (bureau uniquement) |
+
+Les abonnements claude.ai Pro et ChatGPT Plus n'offrent aucun accès automatique aux applications tierces ; le mode copier-coller est la seule façon de les utiliser en respectant leurs conditions.
+
+Sans moteur, les documents sont conservés intacts et la transcription peut être saisie à la main.
 Une transcription automatique n'est jamais présentée comme certaine (mots incertains marqués `[?mot]`).
 
 ## Tests

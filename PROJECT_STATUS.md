@@ -38,6 +38,11 @@ _Mis à jour le 01/11/2026 (v0.1.0)._ Ce fichier distingue strictement ce qui es
 - Navigateur assisté : AD 54/57/55/88/70/52, AM Nancy, Archives nationales, Mémoire des Hommes, Grand Mémorial, MémorialGenWeb, Limédia, Léonore, Geneanet, FamilySearch, Matricula, Roglo, Généafrance, Poznań Project, Genbaza, Belgique, Luxembourg, Allemagne, Suisse, Autriche, Tchéquie, Slovaquie, Hongrie, Espagne, Portugal, États-Unis, Canada, Archives Portal Europe.
 - Tableau de bord des connecteurs avec test réel ; aucun n'est marqué opérationnel sans test réussi.
 
+### IA : options gratuites ou par abonnement — nouveau
+- Fournisseur **Gemini** (Google AI Studio, niveau gratuit) : texte et vision via l'API REST, transmission journalisée, utilisable depuis Vercel.
+- Mode **copier-coller Claude / ChatGPT** (abonnement) : texte à coller généré par l'app (`GET /api/media/{id}/prompt`), réponse collée analysée (`POST /api/media/{id}/analysis`) → transcription, extraction, hypothèse de filiation + question de validation. Testé (analyse de réponse, repli par règles, flux API).
+- Avertissement explicite : Ollama est inutilisable depuis l'application hébergée (il tourne sur le PC de l'utilisateur).
+
 ### IA documentaire
 - Import intègre (copie + SHA-256, doublons détectés), images/PDF/photos, OCR Tesseract si installé, transcription par modèle de vision (Ollama local ou Claude sur autorisation), extraction JSON (langue, type d'acte, date, lieu, personnes et rôles, relations, passages incertains, traduction), repli par règles sans IA, normalisation des dates, mots incertains marqués `[?]`, zones de mots Tesseract pour justification visuelle.
 - Proposition de filiation issue d'un document → hypothèse + question de validation (jamais automatique).

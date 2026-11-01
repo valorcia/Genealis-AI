@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, FileSearch, FileText, Save, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, ClipboardCopy, Download, ExternalLink, FileSearch, FileText, Save, Trash2, Upload, X } from 'lucide-react'
 import { api, openExternal, type MediaOut, type PersonSummary } from '../../api'
 import { useApp } from '../../store'
 import { Empty, Field, Spinner, formatDate } from '../ui'
@@ -46,6 +46,51 @@ function ImageWithWords({ media, words }: { media: MediaOut; words: Word[] }) {
       ))}
       {hover && <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-night-900/90 px-2 py-1 text-xs text-ivory-50">{hover}</div>}
       {pageWords.length > 0 && <p className="mt-1 text-[11px] text-mist-500">Survolez l’image : chaque mot reconnu par l’OCR est encadré pour montrer le passage qui justifie le texte.</p>}
+    </div>
+  )
+}
+
+/** Analyse via l'abonnement claude.ai / chatgpt.com de l'utilisateur : copier le texte, joindre l'image, coller la réponse. */
+function ManualLlmPanel({ media, onDone }: { media: MediaOut; onDone: () => Promise<void> }) {
+  const { notify } = useApp()
+  const [open, setOpen] = useState(false)
+  const [prompt, setPrompt] = useState<string | null>(null)
+  const [answer, setAnswer] = useState('')
+  const [source, setSource] = useState<'claude.ai' | 'chatgpt.com'>('claude.ai')
+  const [busy, setBusy] = useState(false)
+  const start = async () => { setOpen(true); if (!prompt) { try { setPrompt((await api.mediaPrompt(media.id)).prompt) } catch (e) { notify('error', errMsg(e)) } } }
+  const copy = async () => { if (!prompt) return; try { await navigator.clipboard.writeText(prompt); notify('success', 'Texte copié : collez-le dans la conversation avec l’image du document.') } catch { notify('error', 'Copie impossible : sélectionnez le texte ci-dessous et copiez-le.') } }
+  const submit = async () => {
+    setBusy(true)
+    try { await api.mediaManualAnalysis(media.id, answer, source); setAnswer(''); setOpen(false); notify('success', 'Réponse intégrée : transcription et personnes extraites enregistrées (à vérifier).'); await onDone() }
+    catch (e) { notify('error', errMsg(e, 'Réponse illisible.')) } finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-xl border border-gold-500/40 bg-gold-500/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-medium text-night-900">Analyser avec Claude ou ChatGPT (votre abonnement)</div>
+        {!open && <button className="btn-gold !py-1" onClick={start}><ClipboardCopy size={14} /> Commencer</button>}
+      </div>
+      {open && (
+        <div className="mt-3 space-y-3 text-sm">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li className="flex flex-wrap items-center gap-2"><span>Téléchargez l’image :</span><a className="btn-ghost !py-1" href={api.mediaFileUrl(media.id)} download={media.original_filename ?? undefined}><Download size={14} /> Image du document</a></li>
+            <li className="flex flex-wrap items-center gap-2"><span>Copiez le texte :</span><button className="btn-ghost !py-1" onClick={copy} disabled={!prompt}><ClipboardCopy size={14} /> Copier le texte à coller</button></li>
+            <li className="flex flex-wrap items-center gap-2"><span>Ouvrez votre assistant, joignez l’image et collez le texte :</span>
+              <button className="btn-ghost !py-1" onClick={() => { setSource('claude.ai'); openExternal('https://claude.ai/new') }}><ExternalLink size={14} /> claude.ai</button>
+              <button className="btn-ghost !py-1" onClick={() => { setSource('chatgpt.com'); openExternal('https://chatgpt.com/') }}><ExternalLink size={14} /> chatgpt.com</button></li>
+            <li>Collez ici la réponse complète (transcription + bloc JSON) :</li>
+          </ol>
+          {prompt && <details className="text-xs text-mist-500"><summary className="cursor-pointer">Voir le texte à coller</summary><pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-ivory-100 p-2 font-sans">{prompt}</pre></details>}
+          <textarea className="input font-mono text-xs" rows={8} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Collez la réponse de l’assistant…" />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs text-mist-500">Source : <select className="input !w-auto !py-1" value={source} onChange={(e) => setSource(e.target.value as 'claude.ai' | 'chatgpt.com')}><option value="claude.ai">claude.ai</option><option value="chatgpt.com">chatgpt.com</option></select></label>
+            <button className="btn-primary !py-1" disabled={busy || !answer.trim()} onClick={submit}>{busy ? <Spinner /> : <Save size={14} />} Intégrer la réponse</button>
+            <button className="btn-ghost !py-1" onClick={() => setOpen(false)}>Fermer</button>
+          </div>
+          <p className="text-xs text-conf-orange">Une réponse d’assistant n’est jamais une preuve : l’application la traite comme une hypothèse et vous demandera confirmation avant toute filiation.</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -113,6 +158,7 @@ function MediaDetail({ id, persons, onClose, onChanged }: { id: string; persons:
             {transcription ? <div className="max-h-64 overflow-auto scrollbar-thin rounded-xl bg-ivory-100 p-3"><HighlightedText text={m.ocr_text ?? str(a.transcription) ?? ''} /></div> : <p className="text-xs text-mist-500">Aucune transcription. Lancez l’analyse ou saisissez-la ci-dessous.</p>}
             {uncertain.length > 0 && <p className="mt-1 text-xs text-mist-500">Passages incertains : {uncertain.map((u, i) => <mark key={i} className="mr-1 rounded bg-conf-orange/30 px-1">{u || '?'}</mark>)}</p>}
           </div>
+          <ManualLlmPanel media={m} onDone={async () => { await load(); onChanged() }} />
           <div>
             <div className="label">Corriger la transcription</div>
             <textarea className="input font-display text-base" rows={6} value={transcription} onChange={(e) => setTranscription(e.target.value)} placeholder="Saisissez ou corrigez le texte tel qu’il figure sur le document." />

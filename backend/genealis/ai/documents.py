@@ -250,3 +250,67 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# ---------- Mode copier-coller (Claude.ai / ChatGPT par abonnement) ----------
+MANUAL_PROMPT = (
+    "Tu es un paléographe et généalogiste professionnel. Je joins l'image d'un document d'archives "
+    "(acte d'état civil, registre paroissial, recensement…).\n\n"
+    "1) TRANSCRIPTION : transcris fidèlement le document, ligne par ligne, sans rien inventer. Marque chaque mot "
+    "illisible ou incertain entre crochets avec un point d'interrogation, par exemple [?Dupont].\n\n"
+    "2) EXTRACTION : ensuite, sur une ligne seule, écris exactement ===JSON=== puis un objet JSON strict (sans commentaire) "
+    "avec ce schéma, en mettant null quand l'information est absente :\n"
+    '{"language": "fr|it|pl|de|la|en|ru|?", "document_type": "birth|baptism|marriage|death|burial|census|other", '
+    '"date": "date telle qu\'écrite", "place": "lieu de l\'acte", '
+    '"persons": [{"role": "subject|father|mother|spouse|spouse_father|spouse_mother|witness|godfather|godmother|declarant|other", '
+    '"given_names": "...", "surname": "...", "age": null, "occupation": null, "residence": null, "birth_place": null, '
+    '"birth_date": null, "deceased": false, "confidence": "high|medium|low"}], '
+    '"relations": [{"type": "parent|spouse", "from": 0, "to": 1, "evidence": "citation exacte"}], '
+    '"uncertain_passages": ["..."], "translation_fr": "traduction française si le texte n\'est pas en français, sinon null"}\n\n'
+    "Règles : n'invente aucun nom, aucune date ; si tu hésites, mets confidence \"low\" ; ne reformule pas la transcription."
+)
+
+
+def manual_prompt(media: Media) -> str:
+    hint = f"Nom du fichier : {media.original_filename or media.title or ''}."
+    return f"{MANUAL_PROMPT}\n\n{hint}"
+
+
+def parse_manual_answer(text: str) -> AnalysisResult:
+    """Analyse une réponse collée depuis claude.ai / chatgpt.com (transcription + ===JSON===)."""
+    import json as _json
+
+    raw = (text or "").strip()
+    if not raw:
+        raise ValueError("Réponse vide.")
+    transcription, json_part = raw, ""
+    if "===JSON===" in raw:
+        transcription, json_part = raw.split("===JSON===", 1)
+    else:
+        start = raw.find("{")
+        if start > 0:
+            transcription, json_part = raw[:start], raw[start:]
+    transcription = re.sub(r"^\s*(1\)|\*\*)?\s*TRANSCRIPTION\s*:?\s*(\*\*)?", "", transcription.strip(), flags=re.I).strip()
+    extraction: dict = {}
+    warnings: list[str] = []
+    if json_part.strip():
+        m = re.search(r"```(?:json)?\s*(.*?)```", json_part, re.S)
+        candidate = m.group(1) if m else json_part
+        start, end = candidate.find("{"), candidate.rfind("}")
+        if start != -1 and end != -1:
+            try:
+                extraction = _json.loads(candidate[start:end + 1])
+            except ValueError as exc:
+                warnings.append(f"JSON illisible ({exc}) : extraction par règles utilisée.")
+    if not extraction:
+        extraction = rule_based_extract(transcription)
+    extraction["method"] = "manual_llm"
+    if extraction.get("date"):
+        extraction["date_normalized"] = parse_gendate(extraction["date"]).to_dict()
+    for p in extraction.get("persons", []) or []:
+        if isinstance(p, dict) and p.get("birth_date"):
+            p["birth_date_normalized"] = parse_gendate(p["birth_date"]).to_dict()
+    uncertain = re.findall(r"\[\?([^\]]*)\]", transcription)
+    language = extraction.get("language") if isinstance(extraction.get("language"), str) and extraction.get("language") != "?" else detect_language(transcription)
+    warnings.append("Réponse d'un assistant externe collée manuellement : vérifiez l'image avant toute validation.")
+    return AnalysisResult(transcription, "manual_llm", language or "?", extraction, [], uncertain, warnings)

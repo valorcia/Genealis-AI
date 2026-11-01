@@ -42,7 +42,7 @@ export interface MapData { points: { place_id: string; name: string; lat: number
 export interface Dashboard { persons: number; generations: number; oldest_ancestor: { id: string; name: string; year: number; generation: number } | null; relations_total: number; relations_verified: number; relations_by_confidence: Record<string, number>; hypotheses_open: number; documents_total: number; documents_analyzed: number; sources: number; countries: string[]; archives_consulted: string[]; tasks_running: number; tasks_queued: number; tasks_waiting: number; questions_pending: number; contradictions_open: number; log_entries: number; root_person: { id: string; name: string } | null }
 export interface NarrativeParagraph { text: string; sources: CitationOut[]; confidence: Confidence; year: number | null }
 export interface Narrative { person_id: string; name: string; paragraphs: NarrativeParagraph[]; historical_context: HistoricalEvent[]; unsourced_count: number }
-export interface Settings { autonomy_mode: number; ai_provider: string; ollama_url: string; ollama_model: string; ollama_vision_model: string; anthropic_model: string; allow_external_ai: boolean; external_ai_scope: string; ocr_engine: string; tesseract_cmd: string; backup_enabled: boolean; backup_interval_hours: number; backup_keep: number; living_persons_privacy: boolean; onboarding_done: boolean; research_pause: boolean; anthropic_api_key_set: boolean; [k: string]: unknown }
+export interface Settings { autonomy_mode: number; ai_provider: string; ollama_url: string; ollama_model: string; ollama_vision_model: string; anthropic_model: string; allow_external_ai: boolean; external_ai_scope: string; ocr_engine: string; tesseract_cmd: string; backup_enabled: boolean; backup_interval_hours: number; backup_keep: number; living_persons_privacy: boolean; onboarding_done: boolean; research_pause: boolean; anthropic_api_key_set: boolean; gemini_api_key_set?: boolean; gemini_model?: string; [k: string]: unknown }
 export interface ChatOut { role: string; content: string; meta: Record<string, unknown>; ts: string }
 export interface Priority { person_id: string; name: string; missing: string[]; availability: number; country: string; birth_year: number | null; estimated_minutes: number; score: number; already_tried: string[] }
 
@@ -125,6 +125,8 @@ export const api = {
   mediaDetail: (id: string) => req<MediaOut>(`/api/media/${id}`),
   mediaFileUrl: (id: string) => `${API_BASE}/api/media/${id}/file`,
   uploadMedia: (file: File, opts: { person_id?: string; kind?: string; title?: string; analyze?: boolean } = {}) => { const fd = new FormData(); fd.append('file', file); Object.entries(opts).forEach(([k, v]) => { if (v !== undefined) fd.append(k, String(v)) }); return req<MediaOut>('/api/media', { method: 'POST', body: fd }) },
+  mediaPrompt: (id: string) => req<{ prompt: string; file_url: string; filename: string | null }>(`/api/media/${id}/prompt`),
+  mediaManualAnalysis: (id: string, text: string, source: string) => req<MediaOut>(`/api/media/${id}/analysis`, { method: 'POST', body: JSON.stringify({ text, source }) }),
   analyzeMedia: (id: string) => req<{ task_id: string; status: string }>(`/api/media/${id}/analyze`, { method: 'POST' }),
   setTranscription: (id: string, data: { transcription?: string; person_id?: string; title?: string }) => req<MediaOut>(`/api/media/${id}/transcription`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMedia: (id: string) => req<void>(`/api/media/${id}`, { method: 'DELETE' }),

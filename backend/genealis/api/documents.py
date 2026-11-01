@@ -85,6 +85,52 @@ def analyze_media_endpoint(media_id: str, db: Session = Depends(get_session)):
     return {"task_id": t.id, "status": t.status}
 
 
+@router.get("/media/{media_id}/prompt")
+def media_prompt(media_id: str, db: Session = Depends(get_session)):
+    """Texte à coller dans claude.ai / chatgpt.com (abonnement) avec l'image du document."""
+    from ..ai.documents import manual_prompt
+
+    m = db.get(Media, media_id)
+    if not m:
+        raise HTTPException(404, "Document introuvable")
+    return {"prompt": manual_prompt(m), "file_url": f"/api/media/{m.id}/file", "filename": m.original_filename}
+
+
+@router.post("/media/{media_id}/analysis", response_model=MediaOut)
+def media_manual_analysis(media_id: str, body: dict, db: Session = Depends(get_session)):
+    """Enregistre la réponse collée (transcription + JSON) et propose les filiations détectées via le coordinateur."""
+    from ..ai.documents import parse_manual_answer
+    from ..agents.engine import coordinator
+    from ..models import ResearchTask
+
+    m = db.get(Media, media_id)
+    if not m:
+        raise HTTPException(404, "Document introuvable")
+    try:
+        res = parse_manual_answer(body.get("text", ""))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    source = body.get("source") or "claude.ai/chatgpt"
+    res.method = f"manual_llm:{source}"
+    m.ocr_text = res.transcription
+    m.language = res.language if res.language != "?" else m.language
+    m.analysis = res.to_dict()
+    m.analysis_status = "done" if res.transcription else "failed"
+    db.flush()
+    log(db, f"Réponse {source} collée pour « {m.title} » : {len(res.transcription)} caractères, "
+            f"{len(res.extraction.get('persons', []) or [])} personne(s) extraite(s).", category="analysis", person_id=m.person_id)
+    if m.person_id:
+        person = db.get(Person, m.person_id)
+        task = ResearchTask(task_type="analyze_document", title=f"Analyse collée « {m.title} »", person_id=m.person_id,
+                            status="done", params={"media_id": m.id})
+        db.add(task)
+        db.flush()
+        if person:
+            coordinator._propose_from_extraction(db, task, person, m, m.analysis, int(__import__("genealis.services.settings_service", fromlist=["get"]).get(db, "autonomy_mode", 3)))
+    db.commit()
+    return media_out(m, with_text=True)
+
+
 @router.put("/media/{media_id}/transcription", response_model=MediaOut)
 def set_transcription(media_id: str, body: dict, db: Session = Depends(get_session)):
     m = db.get(Media, media_id)

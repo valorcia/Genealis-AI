@@ -363,7 +363,8 @@ class CoordinatorAgent:
         if not (father or mother):
             return
         known = parents_of(db, person.id)
-        desc = ", ".join(f"{p.get('role')} : {p.get('given_names') or ''} {p.get('surname') or ''}".strip() for p in (father, mother) if p)
+        role_fr = {"father": "père", "mother": "mère"}
+        desc = ", ".join(f"{role_fr.get(p.get('role'), p.get('role'))} : {p.get('given_names') or ''} {p.get('surname') or ''}".strip() for p in (father, mother) if p)
         h = Hypothesis(kind="filiation", title=f"Parents de {person.display_name()} d'après le document « {media.title or media.original_filename} »",
                        description=desc, subject_person_id=person.id, candidate={"father": father, "mother": mother, "media_id": media.id},
                        evidence=[{"media_id": media.id, "note": "extraction du document (transcription à vérifier)"}],

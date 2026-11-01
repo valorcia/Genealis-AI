@@ -80,16 +80,20 @@ class AIClient:
 
     # ---- état ----
     def available(self) -> bool:
+        """Vrai si le fournisseur peut être appelé automatiquement (le mode copier-coller ne l'est pas)."""
         if self.provider == "ollama":
-            return True
+            return not __import__("genealis.config", fromlist=["settings"]).settings.serverless
         if self.provider == "anthropic":
             return bool(cfg.get(self.db, "anthropic_api_key")) and bool(cfg.get(self.db, "allow_external_ai"))
+        if self.provider == "gemini":
+            return bool(cfg.get(self.db, "gemini_api_key")) and bool(cfg.get(self.db, "allow_external_ai"))
         return False
 
     def describe(self) -> dict:
-        return {"provider": self.provider, "available": self.available(),
-                "model": cfg.get(self.db, "ollama_model") if self.provider == "ollama" else cfg.get(self.db, "anthropic_model"),
-                "external": self.provider == "anthropic"}
+        model = {"ollama": cfg.get(self.db, "ollama_model"), "anthropic": cfg.get(self.db, "anthropic_model"),
+                 "gemini": cfg.get(self.db, "gemini_model"), "manual": "claude.ai / chatgpt.com (abonnement, copier-coller)"}.get(self.provider)
+        return {"provider": self.provider, "available": self.available(), "model": model,
+                "external": self.provider in ("anthropic", "gemini"), "manual": self.provider == "manual"}
 
     # ---- journal des transmissions ----
     def _log_transfer(self, purpose: str, payload: str, personal: bool, authorized: bool) -> None:
@@ -99,7 +103,7 @@ class AIClient:
         self.db.flush()
 
     def _check_external(self, purpose: str, payload: str, personal: bool) -> None:
-        if self.provider != "anthropic":
+        if self.provider not in ("anthropic", "gemini"):
             return
         allowed = bool(cfg.get(self.db, "allow_external_ai"))
         self._log_transfer(purpose, payload, personal, allowed)
@@ -116,7 +120,39 @@ class AIClient:
         if self.provider == "anthropic":
             self._check_external(purpose, user, personal)
             return self._anthropic(system, user, max_tokens, images, tools)
+        if self.provider == "gemini":
+            self._check_external(purpose, user, personal)
+            return self._gemini(system, user, json_mode, max_tokens, images)
+        if self.provider == "manual":
+            raise AIUnavailable("Mode copier-coller : utilisez « Analyser avec Claude / ChatGPT » sur le document, puis collez la réponse.")
         raise AIUnavailable("Aucun fournisseur IA configuré (Paramètres → Intelligence artificielle).")
+
+    def _gemini(self, system: str, user: str, json_mode: bool, max_tokens: int, images: list[bytes] | None) -> AIResponse:
+        """Google Gemini (API REST, niveau gratuit disponible sans carte bancaire sur aistudio.google.com)."""
+        key = cfg.get(self.db, "gemini_api_key")
+        if not key:
+            raise AIUnavailable("Clé Gemini absente.")
+        model = cfg.get(self.db, "gemini_model", "gemini-2.5-flash")
+        parts: list[dict] = [{"text": user}]
+        for img in images or []:
+            parts.append({"inline_data": {"mime_type": _guess_mime(img), "data": base64.b64encode(img).decode()}})
+        body: dict[str, Any] = {"system_instruction": {"parts": [{"text": system}]}, "contents": [{"role": "user", "parts": parts}],
+                                "generationConfig": {"temperature": 0.1, "maxOutputTokens": max_tokens}}
+        if json_mode:
+            body["generationConfig"]["responseMimeType"] = "application/json"
+        try:
+            r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                           params={"key": key}, json=body, timeout=120)
+            if r.status_code != 200:
+                raise AIUnavailable(f"Gemini HTTP {r.status_code} : {r.text[:200]}")
+        except httpx.HTTPError as exc:
+            raise AIUnavailable(f"Gemini injoignable : {exc}") from exc
+        data = r.json()
+        try:
+            text = "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
+        except (KeyError, IndexError):
+            raise AIUnavailable(f"Réponse Gemini inattendue : {str(data)[:200]}")
+        return AIResponse(text, "gemini", model, data)
 
     def _ollama(self, system: str, user: str, json_mode: bool, max_tokens: int, images: list[bytes] | None) -> AIResponse:
         url = cfg.get(self.db, "ollama_url", "http://127.0.0.1:11434").rstrip("/")
@@ -192,6 +228,22 @@ def test_provider(db: Session) -> dict:
         ok = bool(models)
         return {**info, "ok": ok, "models": models,
                 "message": "Ollama joignable" if ok else "Ollama injoignable ou sans modèle installé."}
+    if client.provider == "manual":
+        return {**info, "ok": True, "message": "Mode copier-coller : l'application prépare le texte à coller dans claude.ai ou chatgpt.com "
+                                               "(votre abonnement), puis analyse la réponse que vous collez. Rien n'est automatique."}
+    if client.provider == "ollama" and __import__("genealis.config", fromlist=["settings"]).settings.serverless:
+        return {**info, "ok": False, "message": "Ollama tourne sur votre ordinateur : l'application hébergée (Vercel) ne peut pas le joindre. "
+                                                "Choisissez Gemini (gratuit) ou le mode copier-coller."}
+    if client.provider == "gemini":
+        if not cfg.get(db, "gemini_api_key"):
+            return {**info, "ok": False, "message": "Clé Gemini absente (gratuite sur https://aistudio.google.com/apikey)."}
+        if not cfg.get(db, "allow_external_ai"):
+            return {**info, "ok": False, "message": "Clé présente mais transmission externe non autorisée."}
+        try:
+            r = client.complete("Réponds uniquement OK.", "Test de connexion.", purpose="test", personal=False, max_tokens=5)
+            return {**info, "ok": True, "message": f"Réponse reçue de {r.model}."}
+        except AIUnavailable as exc:
+            return {**info, "ok": False, "message": str(exc)}
     if client.provider == "anthropic":
         if not cfg.get(db, "anthropic_api_key"):
             return {**info, "ok": False, "message": "Clé API absente."}
