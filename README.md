@@ -19,7 +19,7 @@ Tout est **local** : aucune donnée n'est transmise à un service externe sans a
 
 GENEALIS AI fonctionne aussi comme un site privé hébergé gratuitement sur Vercel, utilisable sur mobile. Tout est gratuit : hébergement, base de données, sources d'archives (aucune clé API payante requise ; l'IA locale est optionnelle).
 
-1. **Dépôt** : importez ce dépôt (`valorcia/Genealis-AI`) dans Vercel (« Add New Project »). Laissez *Root Directory* à la racine. Le fichier `vercel.json` configure le reste (interface + fonction Python + tâche quotidienne).
+1. **Dépôt** : importez ce dépôt (`valorcia/Genealis-AI`) dans Vercel (« Add New Project »). Vercel reconnaît un projet **multi-services** grâce au `vercel.json` à la racine : le service `frontend` (interface Vite) et le service `backend` (moteur FastAPI, point d'entrée `genealis.main:app`), reliés par les règles de réécriture (`/api/*` → moteur, le reste → interface) ; la tâche planifiée quotidienne y est aussi déclarée. Laissez *Root Directory* à la racine et ne modifiez pas le framework détecté (« Services »).
 2. **Base de données** : onglet *Storage* du projet Vercel → créez une base **Neon Postgres** (gratuite) et connectez-la au projet : la variable `DATABASE_URL` (ou `POSTGRES_URL`) est ajoutée automatiquement.
 3. **Documents** (facultatif, pour stocker vos images d'actes) : *Storage* → **Blob** → la variable `BLOB_READ_WRITE_TOKEN` est ajoutée automatiquement.
 4. **Variables d'environnement** (*Settings → Environment Variables*) :

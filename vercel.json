@@ -1,13 +1,25 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd frontend && npm ci && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "echo 'dépendances Python installées depuis requirements.txt'",
-  "framework": null,
-  "functions": { "api/index.py": { "maxDuration": 300, "memory": 1024 } },
+  "services": {
+    "frontend": {
+      "root": "frontend/",
+      "framework": "vite",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    },
+    "backend": {
+      "root": "backend/",
+      "framework": "fastapi",
+      "entrypoint": "genealis.main:app",
+      "functions": {
+        "genealis/main.py": { "maxDuration": 300, "memory": 1024, "excludeFiles": "{genealis/tests/**,dist/**,build/**,**/__pycache__/**}" }
+      }
+    }
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
   ],
   "crons": [ { "path": "/api/research/cron", "schedule": "17 5 * * *" } ],
   "headers": [

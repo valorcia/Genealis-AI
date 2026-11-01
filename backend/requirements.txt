@@ -1,4 +1,5 @@
-# Dépendances du moteur en mode hébergé (Vercel). PyMuPDF, PyInstaller et APScheduler ne sont pas nécessaires ici.
+# Dépendances du moteur pour l'hébergement Vercel (service « backend »).
+# PyMuPDF, PyInstaller et APScheduler ne sont pas nécessaires en mode hébergé.
 fastapi>=0.115
 sqlalchemy>=2.0
 alembic>=1.13

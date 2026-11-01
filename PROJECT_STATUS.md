@@ -5,7 +5,7 @@ _Mis à jour le 01/11/2026 (v0.1.0)._ Ce fichier distingue strictement ce qui es
 ## Fonctionnalités terminées (code écrit)
 
 ### Mode hébergé (Vercel) et mobile — nouveau
-- Même moteur Python exposé en fonction serverless (`api/index.py`, `vercel.json`, `requirements.txt`), base **PostgreSQL (Neon)** ou SQLite au choix via `DATABASE_URL`, documents sur **Vercel Blob** (`storage.py`), recherche plein texte portable (FTS5 sous SQLite, LIKE sans accents sous Postgres), clé de chiffrement par variable d'environnement, initialisation paresseuse.
+- Même moteur Python exposé en service Vercel (`vercel.json` au format « services » : `frontend/` Vite + `backend/` FastAPI `genealis.main:app`, `backend/requirements.txt`), base **PostgreSQL (Neon)** ou SQLite au choix via `DATABASE_URL`, documents sur **Vercel Blob** (`storage.py`), recherche plein texte portable (FTS5 sous SQLite, LIKE sans accents sous Postgres), clé de chiffrement par variable d'environnement, initialisation paresseuse.
 - Exécution des enquêtes **à la demande** (`POST /api/research/run` par tranches de 50 s déclenchées par l'interface ouverte, `GET /api/research/cron` quotidien protégé par `CRON_SECRET`), verrou anti-exécution parallèle, délais réseau raccourcis.
 - **Protection par mot de passe** (`ACCESS_TOKEN`, cookie httpOnly) : données privées même sur une adresse publique.
 - Sauvegarde/restauration **JSON complète** (toutes les tables) pour le mode hébergé, compatible avec la version de bureau.
