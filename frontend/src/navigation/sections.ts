@@ -35,6 +35,7 @@ export const SECTIONS: Section[] = [
     id: 'recherche', label: 'Recherche IA', title: 'Recherche IA', icon: 'Sparkles', color: '#5b3fd6', gradient: ['#ece6ff', '#dcd2ff'],
     tiles: [
       { id: 'centre', label: 'Centre de recherche', route: '/', icon: 'Sparkles', featured: true, description: 'Ce que le généalogiste IA fait et ce qu’il attend de vous' },
+      { id: 'investigation', label: 'Centre d’investigation', route: '/investigation', icon: 'Radar', featured: true, description: 'Lancer une enquête autonome et la suivre en direct' },
       { id: 'demarrer', label: 'Démarrer par mes grands-parents', route: '/demarrer', icon: 'Rocket', featured: true, description: 'Le moyen le plus simple de commencer' },
       { id: 'questions', label: 'Questions', route: '/questions', icon: 'MessageCircleQuestion', featured: true, countKey: 'questions_pending', countLabel: 'en attente' },
       { id: 'importer-document', label: 'Importer un acte ou une photo', route: '/documents/importer', icon: 'FileUp', featured: true, description: 'L’IA lit l’image et propose les ajouts' },
@@ -45,6 +46,7 @@ export const SECTIONS: Section[] = [
       { id: 'connecteurs', label: 'Sources d’archives', route: '/enquetes?tab=connecteurs', icon: 'Landmark' },
       { id: 'insee', label: 'Fichier des décès', route: '/archives?tab=insee', icon: 'BookMarked' },
       { id: 'tableau', label: 'Tableau de bord', route: '/tableau-de-bord', icon: 'LayoutDashboard' },
+      { id: 'couts', label: 'Coûts et quotas IA', route: '/couts', icon: 'Gauge' },
     ],
   },
   {

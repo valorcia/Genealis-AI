@@ -38,6 +38,29 @@ DEFAULTS: dict[str, Any] = {
     "onboarding_done": False,
     "connector_min_interval": 2.0,
     "auto_archive": True,  # archiver automatiquement dans l'application les documents trouvés en ligne
+    # ---- v0.4 : coûts, quotas et cache des appels IA ----
+    "cost_mode": "free",  # free (GRATUIT) | hybrid (HYBRIDE) | commercial (COMMERCIAL)
+    "ai_daily_call_limit": 200,  # plafond quotidien d'appels IA (réglable ; le quota réel dépend du compte Google)
+    "ai_minute_call_limit": 8,  # appels par minute (évite les erreurs 429 du niveau gratuit)
+    "ai_monthly_budget_usd": 0.0,  # 0 = aucune dépense autorisée
+    "investigation_ai_call_ceiling": 60,  # plafond d'appels IA par enquête
+    "ai_max_concurrency": 1,
+    "ai_cache_enabled": True,
+    "ai_cache_ttl_days": 30,
+    "ai_prices": {},  # {"modele": {"input": usd_par_million, "output": usd_par_million}} saisi par l'utilisateur
+    "allow_living_data_external": False,  # transmission de données de personnes vivantes à une IA externe
+    # ---- v0.4 : navigation (Playwright / Browser Use) ----
+    "browser_mode": "local_worker",  # local_worker | off | cloud (Browser Use Cloud : payant, sur autorisation)
+    "browser_use_cloud_authorized": False,
+    "browser_max_steps": 25,
+    "browser_page_timeout_s": 30,
+    "browser_task_timeout_s": 300,
+    "browser_max_retries": 2,
+    "browser_extra_allowed_domains": [],
+    "browser_blocked_domains": [],
+    "browser_headless": True,
+    "investigation_max_generations": 3,
+    "investigation_auto_continue": True,
 }
 
 

@@ -53,6 +53,11 @@ import BookAnnexPage from './pages/BookAnnexPage'
 import DocumentImportPage from './pages/DocumentImportPage'
 import ResearchTracePage from './pages/ResearchTracePage'
 import SourcesConsultedPage from './pages/SourcesConsultedPage'
+// v0.4 : enquêtes autonomes, lecture des écritures anciennes, coûts
+import InvestigationCenterPage from './pages/InvestigationCenterPage'
+import InvestigationViewPage from './pages/InvestigationViewPage'
+import CostsPage from './pages/CostsPage'
+import DocumentReaderPage from './pages/DocumentReaderPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -95,6 +100,10 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/livre/personne/:id" element={<BookPersonPage />} />
             <Route path="/livre/:annex" element={<BookAnnexPage />} />
             <Route path="/documents/importer" element={<DocumentImportPage />} />
+            <Route path="/documents/:mediaId/lecture" element={<DocumentReaderPage />} />
+            <Route path="/investigation" element={<InvestigationCenterPage />} />
+            <Route path="/investigation/:id" element={<InvestigationViewPage />} />
+            <Route path="/couts" element={<CostsPage />} />
             <Route path="/enquetes/:taskId" element={<ResearchTracePage />} />
             <Route path="/sources-consultees" element={<SourcesConsultedPage />} />
             <Route path="/enquetes" element={<ResearchPage />} />

@@ -22,3 +22,18 @@ from .core import (  # noqa: F401
     new_id,
     utcnow,
 )
+from .investigation import (  # noqa: F401,E402
+    INVESTIGATION_STATUSES,
+    STATUS_LABELS_FR,
+    STRATEGIES,
+    TASK_STATES,
+    AICacheEntry,
+    AICallLog,
+    DocumentReading,
+    Investigation,
+    InvestigationEvent,
+    InvestigationTask,
+    PageVisit,
+    PersonMention,
+    ReadingCorrection,
+)

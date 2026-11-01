@@ -107,3 +107,9 @@ if not settings.access_token:
     settings.access_token = os.environ.get("ACCESS_TOKEN") or None
 if not settings.secret_key:
     settings.secret_key = os.environ.get("SECRET_KEY") or None
+
+# Browser Use (agent navigateur open source) : aucune télémétrie, aucune synchronisation cloud, aucune vérification
+# de version en ligne. Le mode cloud (payant) ne s'active que sur autorisation explicite dans les paramètres.
+for _k, _v in (("ANONYMIZED_TELEMETRY", "false"), ("BROWSER_USE_CLOUD_SYNC", "false"), ("BROWSER_USE_VERSION_CHECK", "false"),
+               ("BROWSER_USE_CLOUD_HINTS", "false")):
+    os.environ.setdefault(_k, _v)

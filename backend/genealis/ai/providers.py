@@ -21,12 +21,7 @@ from ..services import settings_service as cfg
 logger = logging.getLogger("genealis.ai")
 
 
-class AIUnavailable(Exception):
-    pass
-
-
-class ExternalTransferRefused(AIUnavailable):
-    pass
+from .errors import AIUnavailable, ExternalTransferRefused, QuotaExceeded  # noqa: E402,F401
 
 
 @dataclass
@@ -37,6 +32,9 @@ class AIResponse:
     raw: Any = None
     # Recherche web (Gemini + Google Search) : requêtes lancées, pages consultées, phrases justifiées par source
     grounding: Optional[dict] = None
+    # Jetons consommés {input_tokens, output_tokens, thinking_tokens} et réponse servie depuis le cache
+    usage: Optional[dict] = None
+    cached: bool = False
 
     def json(self) -> Any:
         """Extrait un objet JSON de la réponse (tolère les blocs ```json)."""
@@ -121,22 +119,89 @@ class AIClient:
     def complete(self, system: str, user: str, *, purpose: str = "analyse", personal: bool = True,
                  json_mode: bool = False, max_tokens: int = 2000, images: list[bytes] | None = None,
                  tools: list[dict] | None = None, attachments: list[tuple[bytes, str]] | None = None,
-                 web_search: bool = False) -> AIResponse:
-        """Appel du modèle. `attachments` = [(octets, type MIME)] (images, PDF) ; `web_search` = recherche Google (Gemini)."""
+                 web_search: bool = False, cacheable: bool | None = None,
+                 subject_person_ids: list[str] | None = None) -> AIResponse:
+        """Appel du modèle. `attachments` = [(octets, type MIME)] (images, PDF) ; `web_search` = recherche Google (Gemini).
+
+        Chaque appel passe par : protection des personnes vivantes → cache → plafonds/quotas (aucun envoi si dépassé)
+        → journal des transmissions → limite de simultanéité → appel → comptage des jetons → mise en cache.
+        `subject_person_ids` : personnes concernées par le contenu (un document rattaché à une personne vivante
+        n'est jamais transmis sans autorisation).
+        """
+        import time
+
+        from ..services import cost, privacy
+
         if web_search and self.provider != "gemini":
             raise AIUnavailable("La recherche web avec sources nécessite Gemini (Paramètres → Intelligence artificielle).")
-        files: list[tuple[bytes, str]] = [(i, _guess_mime(i)) for i in (images or [])] + list(attachments or [])
-        if self.provider == "ollama":
-            return self._ollama(system, user, json_mode, max_tokens, [b for b, m in files if m.startswith("image/")] or None)
-        if self.provider == "anthropic":
-            self._check_external(purpose, user, personal)
-            return self._anthropic(system, user, max_tokens, files, tools)
-        if self.provider == "gemini":
-            self._check_external(purpose, user, personal)
-            return self._gemini(system, user, json_mode and not web_search, max_tokens, files, web_search)
         if self.provider == "manual":
+            cost.check_allowed(self.db, "manual", None, purpose)
             raise AIUnavailable("Mode copier-coller : utilisez « Analyser avec Claude / ChatGPT » sur le document, puis collez la réponse.")
-        raise AIUnavailable("Aucun fournisseur IA configuré (Paramètres → Intelligence artificielle).")
+        if self.provider not in ("ollama", "anthropic", "gemini"):
+            raise AIUnavailable("Aucun fournisseur IA configuré (Paramètres → Intelligence artificielle).")
+        files: list[tuple[bytes, str]] = [(i, _guess_mime(i)) for i in (images or [])] + list(attachments or [])
+        external = self.provider in ("anthropic", "gemini")
+        pseudo: Pseudonymizer | None = None
+        if external and personal and privacy.protection_active(self.db):
+            if subject_person_ids and any(privacy.is_possibly_living(self.db, pid) for pid in subject_person_ids):
+                raise ExternalTransferRefused(privacy.REFUSAL)
+            names = privacy.living_names(self.db)
+            if names:
+                lowered = (system + "\n" + user).lower()
+                present = [n for n in names if n.lower() in lowered]
+                if present:
+                    if web_search:
+                        raise ExternalTransferRefused(privacy.REFUSAL)
+                    pseudo = Pseudonymizer()
+                    user = pseudo.protect(user, present)
+                    system = pseudo.protect(system, present)
+        model = self._model_name()
+        use_cache = (purpose != "test") if cacheable is None else cacheable
+        key = cost.cache_key(self.provider, model, system, user, json_mode=json_mode, web_search=web_search, files=files)
+        if use_cache:
+            hit = cost.cache_get(self.db, key)
+            if hit is not None:
+                cost.record(self.db, provider=self.provider, model=hit.model, purpose=purpose, status="cache_hit",
+                            request_hash=key, attachments=len(files), web_search=web_search)
+                text = pseudo.restore(hit.text) if pseudo else hit.text
+                return AIResponse(text, self.provider, hit.model or model or "", None, hit.grounding, hit.usage, cached=True)
+        cost.check_allowed(self.db, self.provider, model, purpose)
+        if external:
+            self._check_external(purpose, user, personal)
+        t0 = time.monotonic()
+        try:
+            with cost.concurrency_slot(self.db):
+                if self.provider == "ollama":
+                    resp = self._ollama(system, user, json_mode, max_tokens,
+                                        [b for b, m in files if m.startswith("image/")] or None)
+                elif self.provider == "anthropic":
+                    resp = self._anthropic(system, user, max_tokens, files, tools)
+                else:
+                    resp = self._gemini(system, user, json_mode and not web_search, max_tokens, files, web_search)
+        except QuotaExceeded as exc:
+            if exc.scope == "provider":
+                cost.record(self.db, provider=self.provider, model=model, purpose=purpose, status="rate_limited",
+                            duration_ms=int((time.monotonic() - t0) * 1000), request_hash=key, error=str(exc),
+                            attachments=len(files), web_search=web_search)
+            raise
+        except AIUnavailable as exc:
+            cost.record(self.db, provider=self.provider, model=model, purpose=purpose, status="error",
+                        duration_ms=int((time.monotonic() - t0) * 1000), request_hash=key, error=str(exc),
+                        attachments=len(files), web_search=web_search)
+            raise
+        cost.record(self.db, provider=self.provider, model=resp.model, purpose=purpose, status="ok", usage=resp.usage,
+                    duration_ms=int((time.monotonic() - t0) * 1000), request_hash=key, attachments=len(files),
+                    web_search=web_search)
+        if use_cache and resp.text.strip():
+            cost.cache_put(self.db, key, provider=self.provider, model=resp.model, purpose=purpose, text=resp.text,
+                           grounding=resp.grounding, usage=resp.usage, ttl_days=7 if web_search else None)
+        if pseudo:
+            resp.text = pseudo.restore(resp.text)
+        return resp
+
+    def _model_name(self) -> str | None:
+        return {"ollama": cfg.get(self.db, "ollama_model"), "anthropic": cfg.get(self.db, "anthropic_model"),
+                "gemini": cfg.get(self.db, "gemini_model") or "gemini-3.8-flash"}.get(self.provider)
 
     def _gemini(self, system: str, user: str, json_mode: bool, max_tokens: int, files: list[tuple[bytes, str]],
                 web_search: bool = False) -> AIResponse:
@@ -171,6 +236,12 @@ class AIClient:
                     model = fallback
                     r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                                    params={"key": key}, json=body, timeout=120)
+            if r.status_code == 429:
+                from ..services import cost
+
+                wait = cost.note_rate_limited(self.db, r.text)
+                raise QuotaExceeded(f"Quota Gemini atteint (HTTP 429) : appels suspendus environ {max(1, wait // 60)} min. "
+                                    "Aucun nouvel appel ne sera envoyé avant.", scope="provider", retry_after_s=wait)
             if r.status_code != 200:
                 raise AIUnavailable(f"Gemini HTTP {r.status_code} : {r.text[:200]}")
         except httpx.HTTPError as exc:
@@ -188,7 +259,10 @@ class AIClient:
             block = (data.get("promptFeedback") or {}).get("blockReason")
             raise AIUnavailable("Gemini : contenu bloqué par les filtres de sécurité du modèle." if block else f"Réponse Gemini inattendue : {str(data)[:200]}")
         grounding = parse_grounding(data) if web_search else None
-        return AIResponse(text, "gemini", model, data, grounding)
+        um = data.get("usageMetadata") or {}
+        usage = {"input_tokens": um.get("promptTokenCount", 0), "output_tokens": um.get("candidatesTokenCount", 0),
+                 "thinking_tokens": um.get("thoughtsTokenCount", 0)}
+        return AIResponse(text, "gemini", model, data, grounding, usage)
 
     def _ollama(self, system: str, user: str, json_mode: bool, max_tokens: int, images: list[bytes] | None) -> AIResponse:
         url = cfg.get(self.db, "ollama_url", "http://127.0.0.1:11434").rstrip("/")
@@ -205,7 +279,8 @@ class AIClient:
         except httpx.HTTPError as exc:
             raise AIUnavailable(f"Ollama injoignable ({url}) : {exc}") from exc
         data = r.json()
-        return AIResponse(data.get("message", {}).get("content", ""), "ollama", model, data)
+        usage = {"input_tokens": data.get("prompt_eval_count", 0) or 0, "output_tokens": data.get("eval_count", 0) or 0}
+        return AIResponse(data.get("message", {}).get("content", ""), "ollama", model, data, None, usage)
 
     def _anthropic(self, system: str, user: str, max_tokens: int, files: list[tuple[bytes, str]],
                    tools: list[dict] | None) -> AIResponse:
@@ -232,7 +307,9 @@ class AIClient:
         except Exception as exc:
             raise AIUnavailable(f"Erreur API Anthropic : {exc}") from exc
         text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
-        return AIResponse(text, "anthropic", model, msg)
+        u = getattr(msg, "usage", None)
+        usage = {"input_tokens": getattr(u, "input_tokens", 0) or 0, "output_tokens": getattr(u, "output_tokens", 0) or 0}
+        return AIResponse(text, "anthropic", model, msg, None, usage)
 
     def gemini_models(self) -> list[str]:
         """Modèles Gemini disponibles pour cette clé (ceux qui acceptent generateContent), les plus récents d'abord."""
@@ -248,6 +325,27 @@ class AIClient:
                  if "generateContent" in (m.get("supportedGenerationMethods") or [])]
         names = [n for n in names if n.startswith("gemini")]
         return sorted(names, reverse=True)
+
+    def gemini_model_details(self) -> list[dict]:
+        """Fiche officielle de chaque modèle (API models.list de Google) : la référence exacte vient du service lui-même."""
+        key = cfg.get(self.db, "gemini_api_key")
+        if not key:
+            return []
+        try:
+            r = httpx.get("https://generativelanguage.googleapis.com/v1beta/models", params={"key": key, "pageSize": 200}, timeout=20)
+            r.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AIUnavailable(f"Liste des modèles Gemini inaccessible : {exc}") from exc
+        out = []
+        for m in r.json().get("models", []):
+            name = m.get("name", "").split("/", 1)[-1]
+            if not name.startswith("gemini"):
+                continue
+            out.append({"name": name, "display_name": m.get("displayName"), "version": m.get("version"),
+                        "description": (m.get("description") or "")[:300], "input_token_limit": m.get("inputTokenLimit"),
+                        "output_token_limit": m.get("outputTokenLimit"), "thinking": m.get("thinking"),
+                        "methods": m.get("supportedGenerationMethods") or []})
+        return sorted(out, key=lambda d: d["name"], reverse=True)
 
     def ollama_models(self) -> list[str]:
         url = cfg.get(self.db, "ollama_url", "http://127.0.0.1:11434").rstrip("/")
@@ -357,3 +455,77 @@ def test_provider(db: Session) -> dict:
         except AIUnavailable as exc:
             return {**info, "ok": False, "message": str(exc)}
     return {**info, "ok": False, "message": "Fournisseur inconnu."}
+
+
+GEMINI_EXCLUDE = ("embedding", "tts", "image", "live", "audio", "native", "computer-use", "robotics", "aqa", "veo", "lyria")
+
+
+def recommend_gemini_model(models: list[dict]) -> str | None:
+    """Choisit un modèle multimodal « flash » (niveau gratuit), stable de préférence, parmi ceux réellement disponibles."""
+    usable = [m for m in models if "generateContent" in m["methods"] and not any(x in m["name"] for x in GEMINI_EXCLUDE)]
+    flash = [m for m in usable if "flash" in m["name"] and "lite" not in m["name"]]
+
+    def rank(m: dict) -> tuple:
+        n = m["name"]
+        nums = [int(x) for x in re.findall(r"\d+", n.split("-flash")[0])] or [0]
+        return ("preview" not in n and "exp" not in n, "latest" not in n, nums)
+
+    pool = flash or usable
+    return max(pool, key=rank)["name"] if pool else None
+
+
+_PROBE_PNG = base64.b64decode(  # image 8x8 noire : test de la lecture d'image sans aucune donnée personnelle
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGNgGAWjYBSMAggAAAQQAAGFP6pyAAAAAElFTkSuQmCC")
+
+
+def gemini_audit(db: Session, probe: bool = False) -> dict:
+    """Audit du connecteur Gemini : clé, autorisation, modèle configuré vs modèles réellement disponibles,
+    capacités (image, recherche Google). `probe=True` envoie 2 petits appels de test (sans donnée personnelle)."""
+    client = AIClient(db)
+    configured = cfg.get(db, "gemini_model") or "gemini-3.8-flash"
+    report: dict[str, Any] = {"provider": client.provider, "configured_model": configured,
+                              "key_set": bool(cfg.get(db, "gemini_api_key")),
+                              "external_allowed": bool(cfg.get(db, "allow_external_ai")), "checks": []}
+
+    def check(name: str, ok: bool | None, detail: str) -> None:
+        report["checks"].append({"name": name, "ok": ok, "detail": detail})
+
+    check("Clé API Gemini", report["key_set"], "présente (chiffrée)" if report["key_set"] else
+          "absente : créez-la gratuitement sur https://aistudio.google.com/apikey")
+    check("Transmission externe autorisée", report["external_allowed"],
+          "oui" if report["external_allowed"] else "non : activez « Autoriser l'IA externe »")
+    if not report["key_set"]:
+        return report
+    try:
+        models = client.gemini_model_details()
+    except AIUnavailable as exc:
+        check("Liste officielle des modèles", False, str(exc))
+        return report
+    report["available_models"] = models
+    names = {m["name"] for m in models}
+    exists = configured in names
+    check("Modèle configuré disponible", exists, f"{configured} {'existe' if exists else 'introuvable'} dans la liste "
+          f"renvoyée par Google ({len(names)} modèles)")
+    rec = recommend_gemini_model(models)
+    report["recommended_model"] = rec
+    if rec and rec != configured:
+        check("Modèle recommandé", None, f"{rec} (multimodal « flash », niveau gratuit en général — vérifiez les conditions "
+              "sur https://ai.google.dev/gemini-api/docs/pricing)")
+    if probe and report["external_allowed"] and (exists or rec):
+        if not exists and rec:
+            cfg.set_value(db, "gemini_model", rec)
+            report["configured_model"] = rec
+        try:
+            r = client.complete("Réponds en un mot.", "De quelle couleur est cette image ?", purpose="test", personal=False,
+                                max_tokens=20, attachments=[(_PROBE_PNG, "image/png")], cacheable=False)
+            check("Lecture d'image (multimodal)", True, f"{r.model} a répondu : {r.text.strip()[:60]}")
+        except AIUnavailable as exc:
+            check("Lecture d'image (multimodal)", False, str(exc))
+        try:
+            r = client.complete("Réponds brièvement.", "Quel est le site officiel des Archives nationales françaises ?",
+                                purpose="test", personal=False, max_tokens=200, web_search=True, cacheable=False)
+            n = len((r.grounding or {}).get("sources") or [])
+            check("Recherche Google avec sources", n > 0, f"{n} source(s) citée(s)" if n else "aucune source renvoyée")
+        except AIUnavailable as exc:
+            check("Recherche Google avec sources", False, str(exc))
+    return report

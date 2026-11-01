@@ -14,7 +14,7 @@ from starlette.responses import FileResponse
 
 from . import __version__
 from .agents import engine
-from .api import book, documents, interpret, persons, research, sources, system, trace, tree
+from .api import book, costs, documents, interpret, investigations, paleo, persons, research, sources, system, trace, tree, worker
 from .config import settings
 from .db import create_all, init_engine, session_scope
 from .services import settings_service as cfg
@@ -103,7 +103,7 @@ def create_app() -> FastAPI:
                                                       "http://tauri.localhost", "https://tauri.localhost"],
                        allow_methods=["*"], allow_headers=["*"])
     for r in (system.router, persons.router, tree.router, sources.router, research.router, documents.router, book.router,
-              interpret.router, trace.router):
+              interpret.router, trace.router, costs.router, paleo.router, worker.router, investigations.router):
         app.include_router(r)
 
     @app.middleware("http")
