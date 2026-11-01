@@ -26,6 +26,7 @@ def fresh_db():
     if TEST_DB_URL:
         from sqlalchemy import text
 
+        config.settings.database_url = TEST_DB_URL  # stockage des fichiers en base, comme en production hébergée
         dbmod.init_engine(url=TEST_DB_URL)
         from genealis import models  # noqa: F401
 

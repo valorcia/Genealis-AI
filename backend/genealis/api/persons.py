@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_session
 from ..models import Event, Family, ParentChild, Person
-from ..schemas import EventIn, EventOut, FamilyIn, FamilyOut, PersonDetail, PersonIn, PersonSummary, RelationIn, RelationOut
+from ..schemas import EventIn, EventOut, FamilyIn, FamilyOut, PersonDetail, PersonIn, PersonSummary, RelationIn, RelationOut, RelativeIn
 from ..services import persons as svc
 from ..services.confidence import recompute_all
 from ..services.consistency import run_all as run_consistency
@@ -35,6 +35,91 @@ def create_person(data: PersonIn, db: Session = Depends(get_session)):
     log(db, f"Fiche créée : {p.display_name()}", category="decision", person_id=p.id)
     db.commit()
     return svc.person_detail(db, p)
+
+
+@router.get("/{person_id}/kinship/{other_id}")
+def kinship(person_id: str, other_id: str, db: Session = Depends(get_session)):
+    """Lien de parenté : ce que `other_id` est pour `person_id`."""
+    from ..services.kinship import kinship as compute
+
+    try:
+        return compute(db, person_id, other_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.post("/{person_id}/relatives", status_code=201)
+def add_relative(person_id: str, data: RelativeIn, db: Session = Depends(get_session)):
+    """Ajoute un proche (père, mère, frère, sœur, enfant, conjoint, grand-parent) en une seule action."""
+    p = db.get(Person, person_id)
+    if not p:
+        raise HTTPException(404, "Personne introuvable")
+    try:
+        res = svc.add_relative(db, p, data)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    _recalc(db)
+    log(db, res["message"], category="decision", person_id=res["person"].id)
+    task_ids = []
+    if data.research:
+        from ..agents.engine import explore_branch
+
+        task_ids = [t.id for t in explore_branch(db, res["person"].id, generations=1, priority=70)]
+    db.commit()
+    return {"person": svc.person_detail(db, res["person"]).model_dump(), "relations": res["relations"],
+            "placeholders": res["placeholders"], "message": res["message"], "task_ids": task_ids}
+
+
+@router.delete("/{person_id}/subtree")
+def delete_subtree(person_id: str, scope: str = "descendants", include_self: bool = False, confirm: str = "",
+                   db: Session = Depends(get_session)):
+    """Supprime définitivement un sous-arbre (ascendants ou descendants). Exige confirm=SUPPRIMER."""
+    p = db.get(Person, person_id)
+    if not p:
+        raise HTTPException(404, "Personne introuvable")
+    if scope not in ("descendants", "ancestors"):
+        raise HTTPException(400, "scope doit valoir descendants ou ancestors")
+    ids = svc.subtree_ids(db, person_id, scope)
+    if include_self:
+        ids.add(person_id)
+    if confirm != "SUPPRIMER":
+        return {"would_delete": len(ids), "names": [db.get(Person, i).display_name() for i in list(ids)[:50] if db.get(Person, i)]}
+    for i in ids:
+        q = db.get(Person, i)
+        if q:
+            svc.delete_person(db, q)
+    _recalc(db)
+    log(db, f"Sous-arbre supprimé ({scope}) depuis {p.display_name() if not include_self else 'la personne'} : {len(ids)} fiche(s)",
+        category="decision")
+    db.commit()
+    return {"deleted": len(ids)}
+
+
+@router.post("/families/{family_id}/events", response_model=EventOut, status_code=201)
+def add_family_event(family_id: str, data: EventIn, db: Session = Depends(get_session)):
+    f = db.get(Family, family_id)
+    if not f:
+        raise HTTPException(404, "Famille introuvable")
+    data.family_id = family_id
+    ev = svc.add_event(db, None, data)
+    if data.event_type in ("marriage", "civil_marriage", "religious_marriage"):
+        f.union_type = "marriage"
+    elif data.event_type == "pacs":
+        f.union_type = "union"
+    _recalc(db)
+    db.commit()
+    return svc.event_out(db, ev)
+
+
+@router.put("/families/{family_id}", response_model=FamilyOut)
+def update_family(family_id: str, data: FamilyIn, db: Session = Depends(get_session)):
+    f = db.get(Family, family_id)
+    if not f:
+        raise HTTPException(404, "Famille introuvable")
+    f.union_type = data.union_type or f.union_type
+    f.notes = data.notes if data.notes is not None else f.notes
+    db.commit()
+    return svc.family_out(db, f)
 
 
 @router.get("/{person_id}", response_model=PersonDetail)

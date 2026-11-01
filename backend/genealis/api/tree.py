@@ -118,3 +118,52 @@ async def geocode_places(db: Session = Depends(get_session)):
         log(db, f"Géocodage : {done}/{len(todo)} lieu(x) localisé(s) via des services gratuits.", category="connector")
     db.commit()
     return {"total": len(todo), "geocoded": done, "errors": errors[:20]}
+
+
+@router.get("/stats")
+def stats_endpoint(db: Session = Depends(get_session)):
+    from ..services.stats import compute
+
+    return compute(db)
+
+
+@router.get("/reports/state")
+def database_state(db: Session = Depends(get_session)):
+    from ..services.stats import database_state as state
+
+    return state(db)
+
+
+@router.get("/events")
+def list_events(event_type: str | None = None, year_from: int | None = None, year_to: int | None = None,
+                place: str | None = None, limit: int = Query(2000, le=10000), db: Session = Depends(get_session)):
+    """Tous les événements (personnes et familles), pour les listes, la chronique et les anniversaires."""
+    from ..models import Event, Family
+    from ..services.persons import gendate_of
+
+    stmt = select(Event).order_by(Event.sort_year).limit(limit)
+    if event_type:
+        stmt = stmt.where(Event.event_type.in_(event_type.split(",")))
+    if year_from:
+        stmt = stmt.where(Event.sort_year >= year_from)
+    if year_to:
+        stmt = stmt.where(Event.sort_year <= year_to)
+    out = []
+    for e in db.execute(stmt).scalars():
+        place_name = e.place.display() if e.place else e.place_original
+        if place and (not place_name or place.lower() not in place_name.lower()):
+            continue
+        persons = []
+        if e.person_id and e.person:
+            persons.append({"id": e.person.id, "name": e.person.display_name(), "sex": e.person.sex})
+        if e.family_id:
+            f = db.get(Family, e.family_id)
+            for pid in (f.partner1_id, f.partner2_id) if f else ():
+                q = db.get(Person, pid) if pid else None
+                if q:
+                    persons.append({"id": q.id, "name": q.display_name(), "sex": q.sex})
+        out.append({"id": e.id, "event_type": e.event_type, "date_display": gendate_of(e).display(), "date_start": e.date_start,
+                    "date_kind": e.date_kind, "sort_year": e.sort_year, "place": place_name, "lat": e.place.latitude if e.place else None,
+                    "lon": e.place.longitude if e.place else None, "description": e.description, "confidence": e.confidence,
+                    "persons": persons, "family_id": e.family_id})
+    return out

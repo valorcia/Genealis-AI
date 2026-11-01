@@ -15,7 +15,7 @@ from ..ai.providers import AIClient, test_provider
 from ..config import settings
 from ..db import get_session
 from ..models import ChatMessage, Person, TransmissionLog
-from ..schemas import ChatIn, ChatOut, OnboardingIn, PersonIn, RelationIn, SettingsPatch
+from ..schemas import ChatIn, ChatOut, OnboardingIn, PersonIn, QuickStartIn, RelationIn, SettingsPatch
 from ..services import backup as backup_svc
 from ..services import settings_service as cfg
 from ..services.confidence import recompute_all
@@ -37,7 +37,8 @@ def health():
     return {"status": "ok", "version": __version__, "data_dir": str(settings.data_dir), "serverless": settings.serverless,
             "auth_required": bool(settings.access_token),
             "database": "postgresql" if (settings.database_url or "").startswith("postgresql") else "sqlite",
-            "secret_key_set": bool(settings.secret_key), "env_detected": detected}
+            "secret_key_set": bool(settings.secret_key), "env_detected": detected,
+            "database_env": getattr(settings, "database_env", None)}
 
 
 @router.post("/auth/login")
@@ -174,6 +175,56 @@ def technical_log(lines: int = 300):
         return {"path": str(path), "lines": []}
     content = path.read_text(encoding="utf-8", errors="replace").splitlines()
     return {"path": str(path), "lines": content[-lines:]}
+
+
+# ---- démarrage rapide : par les grands-parents (ou tout autre couple), sans se saisir soi-même ----
+@router.post("/quickstart")
+def quickstart(data: QuickStartIn, db: Session = Depends(get_session)):
+    from ..schemas import FamilyIn
+    from ..services.persons import create_family
+
+    people = [p for p in data.people if (p.given_names or p.surname)]
+    if not people:
+        raise HTTPException(400, "Indiquez au moins un prénom ou un nom.")
+    has_root = db.execute(select(Person).where(Person.is_root == True)).scalars().first() is not None  # noqa: E712
+    created = []
+    for i, info in enumerate(people[:2]):
+        if i == 0 and not has_root:
+            info.is_root = True
+        if info.is_living is None and (info.death_date or info.death_place):
+            info.is_living = False
+        created.append(create_person(db, info))
+    family = None
+    if len(created) == 2 and data.couple:
+        a, b = (created[0], created[1]) if created[0].sex != "F" else (created[1], created[0])
+        family = create_family(db, FamilyIn(partner1_id=a.id, partner2_id=b.id,
+                                            union_type="marriage" if (data.marriage_date or data.marriage_place) else "unknown",
+                                            marriage_date=data.marriage_date, marriage_place=data.marriage_place))
+    children = []
+    for c in data.children:
+        if not (c.given_names or c.surname):
+            continue
+        child = create_person(db, c)
+        for parent in created:
+            add_relation(db, RelationIn(parent_id=parent.id, child_id=child.id, relation_type="biological",
+                                        notes="Déclaré par l'utilisateur au démarrage (à sourcer)"))
+        children.append(child)
+    cfg.set_value(db, "onboarding_done", True)
+    if db.get(__import__("genealis.models", fromlist=["Setting"]).Setting, "autonomy_mode") is None:
+        cfg.set_value(db, "autonomy_mode", 3)
+    run_consistency(db)
+    recompute_all(db)
+    for p in created:
+        suggest_onboarding_questions(db, p)
+    tasks = []
+    if data.research:
+        for p in created:
+            tasks.extend(engine.explore_branch(db, p.id, generations=3, priority=75))
+    log(db, f"Démarrage rapide : {', '.join(p.display_name() for p in created)} — {len(tasks)} recherche(s) planifiée(s).",
+        category="decision", person_id=created[0].id)
+    db.commit()
+    return {"persons": [p.id for p in created], "children": [c.id for c in children], "family_id": family.id if family else None,
+            "tasks": [t.id for t in tasks], "root_id": created[0].id}
 
 
 # ---- premier démarrage ----

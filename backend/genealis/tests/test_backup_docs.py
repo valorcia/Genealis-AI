@@ -25,12 +25,15 @@ def test_import_document_integrite(db, tmp_path):
 
     img = tmp_path / "acte.png"
     Image.new("RGB", (200, 100), "white").save(img)
+    from genealis.services import storage
+
     m = import_file(db, img, person_id=f["father"].id, title="Acte test")
-    assert Path(m.path).exists() and m.sha256
-    original = Path(m.path).read_bytes()
+    assert storage.exists(m.path) and m.sha256
+    original = storage.read_bytes(m.path)
+    assert original == img.read_bytes()
     m2 = import_file(db, img, person_id=f["father"].id)
     assert m2.id == m.id  # doublon détecté par empreinte
-    assert Path(m.path).read_bytes() == original  # fichier original jamais modifié
+    assert storage.read_bytes(m.path) == original  # fichier original jamais modifié
 
 
 def test_extraction_par_regles():

@@ -425,3 +425,96 @@ def insee_import_local(body: dict):
     if not p.exists():
         raise HTTPException(404, "Fichier introuvable")
     return {"imported": insee_local.import_file(p)}
+
+
+
+# ---- Centre de recherche IA ----
+@router.get("/discoveries")
+def discoveries(limit: int = 60, db: Session = Depends(get_session)):
+    """Fil des découvertes réelles : pistes trouvées, sources enregistrées, documents archivés, questions."""
+    from ..models import Media, Source
+
+    items = []
+    for h in db.execute(select(Hypothesis).order_by(Hypothesis.created_at.desc()).limit(limit)).scalars():
+        p = db.get(Person, h.subject_person_id) if h.subject_person_id else None
+        items.append({"kind": "hypothesis", "id": h.id, "title": h.title, "status": h.status, "score": h.score,
+                      "person_id": h.subject_person_id, "person_name": p.display_name() if p else None,
+                      "url": (h.candidate or {}).get("url"), "created_at": h.created_at, "by": h.created_by})
+    for src in db.execute(select(Source).where(Source.connector_id.isnot(None)).order_by(Source.created_at.desc()).limit(limit)).scalars():
+        items.append({"kind": "source", "id": src.id, "title": src.title, "status": src.reliability, "url": src.url,
+                      "created_at": src.created_at, "person_id": None, "person_name": None, "by": src.connector_id})
+    for m in db.execute(select(Media).order_by(Media.created_at.desc()).limit(limit)).scalars():
+        if not (m.analysis or {}).get("archived_from"):
+            continue
+        p = db.get(Person, m.person_id) if m.person_id else None
+        items.append({"kind": "archive", "id": m.id, "title": m.title, "status": m.kind, "url": m.analysis.get("archived_from"),
+                      "person_id": m.person_id, "person_name": p.display_name() if p else None, "created_at": m.created_at,
+                      "by": "archiviste"})
+    for q in db.execute(select(Question).order_by(Question.created_at.desc()).limit(limit)).scalars():
+        p = db.get(Person, q.person_id) if q.person_id else None
+        items.append({"kind": "question", "id": q.id, "title": q.title, "status": q.status, "person_id": q.person_id,
+                      "person_name": p.display_name() if p else None, "created_at": q.created_at, "url": None, "by": "coordinateur"})
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items[:limit]
+
+
+@router.post("/advice/{person_id}")
+def advice(person_id: str, db: Session = Depends(get_session)):
+    """Pistes de recherche pour une personne : IA si configurée (présentées comme suggestions), sinon règles du planificateur."""
+    from ..agents.engine import HistorianAgent
+    from ..agents.planner import build_query, missing_info_score
+    from ..ai.providers import AIClient, AIUnavailable
+    from ..services.persons import parents_of, person_summary
+
+    p = db.get(Person, person_id)
+    if not p:
+        raise HTTPException(404, "Personne introuvable")
+    s = person_summary(db, p)
+    ctx = HistorianAgent().context_for(db, p)
+    missing = missing_info_score(db, p)
+    q = build_query(p, "birth")
+    links = []
+    for c in registry.all():
+        caps = c.capabilities
+        if caps.id in ("geo_api_gouv", "nominatim", "wikidata"):
+            continue
+        if caps.country in ("*", ctx["country"]) and (caps.country != "FR" or not ctx.get("department")
+                                                         or ctx["department"] in caps.areas or "*" in caps.areas):
+            links.append({"id": caps.id, "name": caps.name, "url": c.browse_url(q), "mode": caps.access_mode})
+    links = links[:14]
+    facts = {"nom": s.display_name, "sexe": s.sex, "naissance": s.birth_display, "lieu_naissance": s.birth_place,
+             "deces": s.death_display, "lieu_deces": s.death_place, "profession": s.occupation,
+             "parents": [x.display_name() for x, _ in parents_of(db, p.id)], "manques": missing["missing"],
+             "pays_probable": ctx["country"], "recherches_deja_faites": list((p.research_status or {}).keys())}
+    rules = ["**Contexte** : " + (" ".join(ctx["notes"]) or "lieu ou période à préciser pour cibler les archives.")]
+    if missing["missing"]:
+        rules.append("**À trouver en priorité** : " + ", ".join({"birth": "acte de naissance", "marriage": "acte de mariage",
+                                                                   "death": "acte de décès", "parents": "parents"}.get(m, m) for m in missing["missing"]))
+    if not s.birth_place:
+        rules.append("**Conseil** : indiquez au moins la commune ou le département de naissance ; c'est la clé pour savoir quel service d'archives consulter.")
+    if s.birth_year and s.birth_year >= 1793 and ctx["country"] == "FR":
+        rules.append("**Méthode** : consultez d'abord la table décennale de la commune pour la décennie de naissance, puis l'acte lui-même ; l'acte de naissance donne les noms des parents.")
+    if s.birth_year and s.birth_year < 1793 and ctx["country"] == "FR":
+        rules.append("**Méthode** : avant 1793, cherchez l'acte de baptême dans les registres paroissiaux de la paroisse.")
+    if ctx["country"] == "IT":
+        rules.append("**Italie** : le Portale Antenati permet de parcourir les registres par commune et par année ; le nom de la commune d'origine est indispensable.")
+    if ctx["country"] == "PL":
+        rules.append("**Pologne** : Geneteka indexe beaucoup d'actes ; essayez les variantes orthographiques du nom (ex. -ski/-sky, w/v).")
+    result = {"source": "rules", "markdown": "\n".join(f"- {r}" for r in rules), "links": links, "facts": facts}
+    ai = AIClient(db)
+    if ai.available():
+        try:
+            import json as _json
+
+            r = ai.complete(
+                "Tu es un généalogiste professionnel qui aide un débutant. À partir des faits fournis (et uniquement d'eux), "
+                "propose un plan de recherche concret et court en français : quelles archives consulter, dans quel ordre, quels "
+                "registres, quelles variantes orthographiques du nom essayer, quels pièges éviter (homonymes, changements de "
+                "frontières). N'invente aucun fait sur la famille : ce sont des pistes à vérifier. Réponds en Markdown, 10 lignes maximum.",
+                "Faits connus :\n" + _json.dumps(facts, ensure_ascii=False), purpose=f"pistes de recherche {p.id}", max_tokens=900)
+            if r.text.strip():
+                result = {**result, "source": f"ai:{r.provider}", "markdown": r.text.strip(), "rules_markdown": result["markdown"]}
+        except AIUnavailable as exc:
+            result["ai_error"] = str(exc)
+    db.commit()
+    return result

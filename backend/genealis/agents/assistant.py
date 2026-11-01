@@ -175,6 +175,20 @@ def handle(db: Session, message: str) -> dict[str, Any]:
             reply = ("Je peux : rechercher les parents d'une personne, remonter une branche, vérifier des ancêtres, "
                      "lister les documents manquants, expliquer un niveau de confiance, montrer les contradictions, "
                      "ou lister les personnes d'un lieu et d'une période.")
+            ai = AIClient(db)
+            if ai.available():
+                try:
+                    people = [person_summary(db, x) for x in db.execute(select(Person).limit(40)).scalars()]
+                    ctx = "\n".join(f"- {x.display_name} ({x.birth_display or '?'} {x.birth_place or ''} – {x.death_display or '?'})" for x in people)
+                    r = ai.complete(
+                        "Tu es l'assistant généalogique de GENEALIS AI pour un utilisateur débutant. Réponds en français, simplement. "
+                        "Pour toute affirmation sur la famille de l'utilisateur, n'utilise QUE les personnes listées ; si l'information "
+                        "manque, dis-le. Tu peux donner des conseils généraux de méthode généalogique.",
+                        f"Personnes de l'arbre :\n{ctx or '(arbre vide)'}\n\nQuestion : {message}", purpose="assistant", max_tokens=900)
+                    if r.text.strip():
+                        reply, meta["intent"], meta["rephrased_by"] = r.text.strip(), "ai_help", r.provider
+                except AIUnavailable:
+                    pass
 
     # Reformulation optionnelle par un modèle, strictement à partir des faits ci-dessus
     ai = AIClient(db)

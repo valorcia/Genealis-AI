@@ -13,11 +13,13 @@ from ..schemas import EventIn, FamilyIn, PersonIn, RelationIn
 from ..services.gendate import GenDate, to_gedcom
 from ..services.persons import add_event, add_relation, apply_event_fields, create_family, create_person, index_person
 
-EVENT_TAGS = {"BIRT": "birth", "CHR": "baptism", "BAPM": "baptism", "DEAT": "death", "BURI": "burial",
+EVENT_TAGS = {"BIRT": "birth", "CHR": "baptism", "BAPM": "baptism", "DEAT": "death", "BURI": "burial", "CREM": "cremation",
+              "EDUC": "education", "GRAD": "graduation", "RETI": "retirement", "CONF": "confirmation", "FCOM": "first_communion",
               "RESI": "residence", "CENS": "census", "OCCU": "occupation", "IMMI": "immigration", "EMIG": "emigration",
               "NATU": "naturalization", "WILL": "will", "PROB": "probate", "MILI": "military", "_MILI": "military",
               "EVEN": "other"}
-FAM_EVENT_TAGS = {"MARR": "marriage", "MARB": "marriage_banns", "MARC": "marriage_contract", "DIV": "divorce"}
+FAM_EVENT_TAGS = {"MARR": "marriage", "MARB": "marriage_banns", "MARC": "marriage_contract", "DIV": "divorce",
+                  "ENGA": "engagement", "MARL": "marriage_license", "DIVF": "separation"}
 REV_EVENT_TAGS = {v: k for k, v in EVENT_TAGS.items() if k not in ("CHR", "_MILI")}
 REV_FAM_TAGS = {v: k for k, v in FAM_EVENT_TAGS.items()}
 
@@ -255,13 +257,18 @@ def _esc_lines(level: int, tag: str, value: str | None) -> list[str]:
     return out
 
 
-def export_gedcom(db: Session, *, hide_living: bool = True) -> str:
+def export_gedcom(db: Session, *, hide_living: bool = True, only: set[str] | None = None) -> str:
     persons = db.execute(select(Person)).scalars().all()
     families = list(db.execute(select(Family)).scalars().all())
+    if only is not None:
+        persons = [p for p in persons if p.id in only]
+        families = [f for f in families if f.partner1_id in only or f.partner2_id in only]
     sources = db.execute(select(Source)).scalars().all()
     # Parents sans famille enregistrée (parent isolé, beau-parent) : famille monoparentale synthétique
     covered = {f.partner1_id for f in families} | {f.partner2_id for f in families}
     for rel in db.execute(select(ParentChild)).scalars():
+        if only is not None and (rel.parent_id not in only or rel.child_id not in only):
+            continue
         if rel.parent_id not in covered:
             parent = db.get(Person, rel.parent_id)
             synth = Family(id=f"synth-{rel.parent_id}", partner1_id=rel.parent_id if (parent and parent.sex != "F") else None,

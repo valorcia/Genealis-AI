@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import JSON, Boolean, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, Index, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db import Base
@@ -116,9 +116,10 @@ class Family(Base, TimestampMixin):
 
 
 EVENT_TYPES = (
-    "birth", "baptism", "marriage", "marriage_banns", "marriage_contract", "divorce", "death", "burial",
-    "residence", "census", "occupation", "military", "immigration", "emigration", "naturalization",
-    "will", "probate", "other",
+    "birth", "baptism", "marriage", "civil_marriage", "religious_marriage", "marriage_banns", "marriage_contract",
+    "marriage_license", "engagement", "pacs", "separation", "divorce", "death", "burial", "cremation",
+    "residence", "census", "occupation", "education", "military", "immigration", "emigration", "naturalization",
+    "will", "probate", "retirement", "graduation", "confirmation", "first_communion", "other",
 )
 DATE_KINDS = ("exact", "approx", "before", "after", "between", "calculated", "unknown")
 CALENDARS = ("gregorian", "julian", "republican", "hebrew", "unknown")
@@ -358,3 +359,26 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(16))  # user | assistant | system
     content: Mapped[str] = mapped_column(Text)
     meta: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class SiblingLink(Base, TimestampMixin):
+    """Fratrie connue alors que les parents ne sont pas encore identifiés (évite d'inventer des parents)."""
+
+    __tablename__ = "sibling_links"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    person1_id: Mapped[str] = mapped_column(ForeignKey("persons.id", ondelete="CASCADE"), index=True)
+    person2_id: Mapped[str] = mapped_column(ForeignKey("persons.id", ondelete="CASCADE"), index=True)
+    relation_type: Mapped[str] = mapped_column(String(16), default="unknown")  # full | half | unknown
+    confidence: Mapped[str] = mapped_column(String(8), default="grey")
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class StoredFile(Base):
+    """Fichier archivé stocké directement en base (mode hébergé sans stockage objet)."""
+
+    __tablename__ = "stored_files"
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    mime: Mapped[Optional[str]] = mapped_column(String(128))
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)

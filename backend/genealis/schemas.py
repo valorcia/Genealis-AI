@@ -79,6 +79,36 @@ class PersonSummary(BaseModel):
     death_place: Optional[str] = None
     occupation: Optional[str] = None
     portrait_media_id: Optional[str] = None
+    age_years: Optional[int] = None  # âge au décès, ou âge actuel si vivant
+    age_display: Optional[str] = None  # « 82 ans » ou « ≈ 82 ans »
+    age_detail: Optional[str] = None  # « 82 a 5 m 12 j » si dates exactes
+    age_context: Optional[str] = None  # « au décès » | « aujourd'hui »
+
+
+class RelativeIn(BaseModel):
+    """Ajout rapide d'un proche depuis l'arbre ou la fiche."""
+
+    relation: str  # father | mother | son | daughter | child | brother | sister | sibling | spouse | husband | wife
+    # | paternal_grandfather | paternal_grandmother | maternal_grandfather | maternal_grandmother
+    person: Optional[PersonIn] = None  # nouvelle personne
+    existing_id: Optional[str] = None  # ou personne existante
+    other_parent_id: Optional[str] = None  # pour un enfant : l'autre parent (conjoint)
+    relation_type: str = "biological"
+    sibling_shared: str = "both"  # both | father | mother (demi-frère / demi-sœur)
+    marriage_date: Optional[str] = None
+    marriage_place: Optional[str] = None
+    research: bool = False  # lancer immédiatement la recherche IA sur ce proche
+
+
+class QuickStartIn(BaseModel):
+    """Démarrage direct par un couple (grands-parents, parents, ancêtres) sans se saisir soi-même."""
+
+    people: list[PersonIn] = Field(default_factory=list)  # 1 ou 2 personnes
+    couple: bool = True
+    marriage_date: Optional[str] = None
+    marriage_place: Optional[str] = None
+    children: list[PersonIn] = Field(default_factory=list)  # enfants connus du couple (ex. votre père)
+    research: bool = True
 
 
 class RelationOut(BaseModel):

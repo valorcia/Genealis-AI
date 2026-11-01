@@ -37,6 +37,7 @@ DEFAULTS: dict[str, Any] = {
     "living_persons_privacy": True,
     "onboarding_done": False,
     "connector_min_interval": 2.0,
+    "auto_archive": True,  # archiver automatiquement dans l'application les documents trouvés en ligne
 }
 
 

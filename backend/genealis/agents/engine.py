@@ -290,6 +290,7 @@ class CoordinatorAgent:
                            task_id=task.id, group_key=f"{task.task_type}:{person.id}")
             db.add(h)
         db.flush()
+        self._auto_archive(db, task, person, strong + plausible + ambiguous)
         if ambiguous:
             top = ambiguous[0]
             others = ", ".join(db.get(Person, m["person_id"]).display_name() for m in top["other_matches"] if db.get(Person, m["person_id"]))
@@ -336,6 +337,33 @@ class CoordinatorAgent:
             log(db, f"Aucun résultat exploitable pour {person.display_name()} ; piste conservée pour réévaluation.",
                 category="result", level="warning", task_id=task.id, person_id=person.id)
 
+    ARCHIVABLE = {"gallica", "internet_archive", "openarch", "uk_tna_discovery", "francearchives", "insee_deces", "antenati",
+                  "szukajwarchiwach", "geneteka"}
+
+    def _auto_archive(self, db: Session, task: ResearchTask, person: Person, evaluations: list[dict], limit: int = 2) -> None:
+        """Archive dans l'application les documents en ligne des meilleures pistes (copie de travail, jamais une preuve en soi)."""
+        if not cfg.get(db, "auto_archive", True):
+            return
+        from ..services.web_archive import ArchiveRefused, archive_url
+
+        archived = []
+        for e in evaluations:
+            r = e["result"]
+            if len(archived) >= limit or not r.get("url") or r.get("connector_id") not in self.ARCHIVABLE:
+                continue
+            if e["target"]["total"] < 50:
+                continue
+            try:
+                medias = archive_url(db, r["url"], person_id=person.id, title=r.get("title"))
+                archived.extend(m.id for m in medias)
+            except (ArchiveRefused, ValueError) as exc:
+                log(db, f"Archivage non effectué pour « {r.get('title')} » : {exc}", category="connector", level="warning",
+                    task_id=task.id, person_id=person.id)
+            except Exception as exc:  # pragma: no cover - réseau
+                log(db, f"Archivage échoué : {exc}", category="error", level="warning", task_id=task.id, person_id=person.id)
+        if archived:
+            task.result = {**(task.result or {}), "archived_media": archived}
+
     def _record_source(self, db: Session, task: ResearchTask, person: Person, evaluation: dict) -> Source:
         r = evaluation["result"]
         src = Source(title=r["title"], repository=r.get("repository"), url=r.get("url"), year=r.get("year"),
@@ -354,6 +382,18 @@ class CoordinatorAgent:
             db.add(Citation(source_id=src.id, target_type="event", target_id=ev.id, confidence="orange"))
         db.flush()
         log(db, f"Source enregistrée : {src.title}", category="decision", task_id=task.id, person_id=person.id)
+        if src.url and cfg.get(db, "auto_archive", True):
+            from ..services.web_archive import ArchiveRefused, archive_url
+
+            try:
+                medias = archive_url(db, src.url, person_id=person.id, source_id=src.id, title=src.title)
+                if medias:
+                    src.local_copy_path, src.local_copy_allowed = medias[0].id, True
+            except (ArchiveRefused, ValueError) as exc:
+                log(db, f"Copie locale de la source non effectuée : {exc}", category="connector", level="warning",
+                    task_id=task.id, person_id=person.id)
+            except Exception:  # pragma: no cover
+                pass
         return src
 
     def _propose_from_extraction(self, db: Session, task: ResearchTask, person: Person, media: Media, analysis: dict, mode: int) -> None:

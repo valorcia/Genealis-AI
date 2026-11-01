@@ -13,7 +13,7 @@ from ..models import Media, Person
 from . import storage
 from .fts import index_entity
 
-ALLOWED = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".pdf", ".gif", ".bmp"}
+ALLOWED = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".pdf", ".gif", ".bmp", ".html", ".htm", ".txt", ".heic"}
 
 
 def import_file(db: Session, src: Path, *, original_filename: str | None = None, kind: str = "document",

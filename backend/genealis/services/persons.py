@@ -6,9 +6,9 @@ from typing import Iterable, Optional
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
-from ..models import Citation, Contradiction, Event, Family, Hypothesis, Media, ParentChild, Person, Question, Source
+from ..models import Citation, Contradiction, Event, Family, Hypothesis, Media, ParentChild, Person, Question, SiblingLink, Source
 from ..schemas import (CitationOut, ContradictionOut, EventIn, EventOut, FamilyIn, FamilyOut, HypothesisOut, MediaOut,
-                       PersonDetail, PersonIn, PersonSummary, QuestionOut, RelationIn, RelationOut)
+                       PersonDetail, PersonIn, PersonSummary, QuestionOut, RelationIn, RelationOut, RelativeIn)
 from .fts import index_entity, remove_entity
 from .gendate import GenDate, parse_gendate
 from .places import resolve_place
@@ -55,10 +55,63 @@ def _vital(db: Session, person: Person, etype: str) -> Optional[Event]:
     return evs[0]
 
 
+def _date_parts(iso: Optional[str]) -> tuple[Optional[int], Optional[int], Optional[int]]:
+    if not iso:
+        return None, None, None
+    parts = iso.split("-")
+    try:
+        return int(parts[0]), (int(parts[1]) if len(parts) > 1 else None), (int(parts[2]) if len(parts) > 2 else None)
+    except ValueError:
+        return None, None, None
+
+
+def compute_age(p: Person, birth: Optional[Event], death: Optional[Event]) -> dict:
+    """Âge au décès (ou âge actuel d'une personne vivante). « ≈ » dès qu'une date n'est pas exacte."""
+    from datetime import date, timedelta
+
+    empty = {"age_years": None, "age_display": None, "age_detail": None, "age_context": None}
+    if not birth or not birth.date_start or birth.date_kind not in ("exact", "approx", "calculated"):
+        return empty
+    by, bm, bd = _date_parts(birth.date_start)
+    if by is None:
+        return empty
+    today = date.today()
+    if death is not None:
+        if not death.date_start or death.date_kind not in ("exact", "approx", "calculated"):
+            return empty
+        ey, em, ed = _date_parts(death.date_start)
+        context = "au décès"
+        exact_end = death.date_kind == "exact"
+    else:
+        if p.is_living is False or today.year - by > 105:
+            return empty  # décédé sans date connue : on ne calcule rien
+        ey, em, ed = today.year, today.month, today.day
+        context = "aujourd'hui"
+        exact_end = True
+    if ey is None or ey < by:
+        return empty
+    exact = birth.date_kind == "exact" and exact_end and all(v is not None for v in (bm, bd, em, ed))
+    if exact:
+        b, e = date(by, bm, bd), date(ey, em, ed)
+        y, m, d = e.year - b.year, e.month - b.month, e.day - b.day
+        if d < 0:
+            m -= 1
+            d += (date(e.year, e.month, 1) - timedelta(days=1)).day
+        if m < 0:
+            y -= 1
+            m += 12
+        return {"age_years": y, "age_display": f"{y} an{'s' if y > 1 else ''}", "age_detail": f"{y} a {m} m {d} j",
+                "age_context": context}
+    years = ey - by
+    if bm and em and (em, ed or 0) < (bm, bd or 0):
+        years -= 1
+    return {"age_years": years, "age_display": f"≈ {years} an{'s' if years > 1 else ''}", "age_detail": None, "age_context": context}
+
+
 def person_summary(db: Session, p: Person) -> PersonSummary:
     b = _vital(db, p, "birth") or _vital(db, p, "baptism")
     d = _vital(db, p, "death") or _vital(db, p, "burial")
-    return PersonSummary(
+    return PersonSummary(**compute_age(p, b, d),
         id=p.id, display_name=p.display_name(), given_names=p.given_names, surname=p.surname,
         married_name=p.married_name, sex=p.sex, confidence=p.confidence, is_root=p.is_root, is_living=p.is_living,
         birth_year=b.sort_year if b else None, death_year=d.sort_year if d else None,
@@ -147,13 +200,21 @@ def spouses_of(db: Session, person_id: str) -> list[Person]:
 
 
 def siblings_of(db: Session, person_id: str) -> list[Person]:
+    """Frères et sœurs : enfants des mêmes parents + liens de fratrie déclarés sans parents connus."""
     parent_ids = [p.id for p, _ in parents_of(db, person_id)]
     seen: dict[str, Person] = {}
     for pid in parent_ids:
         for c, _ in children_of(db, pid):
             if c.id != person_id:
                 seen[c.id] = c
-    return list(seen.values())
+    for link in db.execute(select(SiblingLink).where(or_(SiblingLink.person1_id == person_id,
+                                                         SiblingLink.person2_id == person_id))).scalars():
+        other = link.person2_id if link.person1_id == person_id else link.person1_id
+        o = db.get(Person, other)
+        if o:
+            seen[o.id] = o
+    # Fratrie transitive : les frères et sœurs liés à mes frères et sœurs déclarés
+    return sorted(seen.values(), key=lambda x: (next((e.sort_year for e in x.events if e.event_type == "birth" and e.sort_year), 9999)))
 
 
 def person_detail(db: Session, p: Person) -> PersonDetail:
@@ -331,4 +392,129 @@ def search_persons(db: Session, q: str, limit: int = 50) -> list[Person]:
         like = f"%{q}%"
         out = db.execute(select(Person).where(or_(Person.given_names.ilike(like), Person.surname.ilike(like),
                                                    Person.married_name.ilike(like))).limit(limit)).scalars().all()
+    return out
+
+
+
+# ---------- Ajout rapide de proches ----------
+RELATIVE_SEX = {"father": "M", "mother": "F", "son": "M", "daughter": "F", "brother": "M", "sister": "F", "husband": "M",
+                "wife": "F", "paternal_grandfather": "M", "paternal_grandmother": "F", "maternal_grandfather": "M",
+                "maternal_grandmother": "F"}
+RELATIVE_LABEL = {"father": "père", "mother": "mère", "parent": "parent", "son": "fils", "daughter": "fille", "child": "enfant",
+                  "brother": "frère", "sister": "sœur", "sibling": "frère ou sœur", "spouse": "conjoint(e)", "husband": "époux",
+                  "wife": "épouse", "paternal_grandfather": "grand-père paternel", "paternal_grandmother": "grand-mère paternelle",
+                  "maternal_grandfather": "grand-père maternel", "maternal_grandmother": "grand-mère maternelle"}
+
+
+def _parent_by_sex(db: Session, person_id: str, sex: str) -> Optional[Person]:
+    for p, r in parents_of(db, person_id):
+        if p.sex == sex and r.relation_type in ("biological", "uncertain"):
+            return p
+    return None
+
+
+def _link_parent(db: Session, parent: Person, child: Person, relation_type: str, notes: str | None = None) -> ParentChild:
+    rel = add_relation(db, RelationIn(parent_id=parent.id, child_id=child.id, relation_type=relation_type, notes=notes))
+    # Union des deux parents si l'autre parent est connu
+    others = [p for p, r in parents_of(db, child.id) if p.id != parent.id and r.relation_type in ("biological", "uncertain")]
+    for o in others:
+        if (o.sex or "") != (parent.sex or "") or not o.sex:
+            find_or_create_family(db, parent.id if parent.sex != "F" else o.id, o.id if parent.sex != "F" else parent.id)
+    return rel
+
+
+def add_relative(db: Session, person: Person, data: RelativeIn) -> dict:
+    """Crée (ou relie) un proche en une seule opération. Ne crée jamais de lien sans l'action explicite de l'utilisateur.
+
+    Retourne {"person": Person, "relations": [ids], "placeholders": [ids], "message": str}.
+    """
+    relation = data.relation
+    if relation not in RELATIVE_LABEL:
+        raise ValueError(f"Type de proche inconnu : {relation}")
+    placeholders: list[str] = []
+    relations: list[str] = []
+    if data.existing_id:
+        other = db.get(Person, data.existing_id)
+        if other is None:
+            raise ValueError("Personne existante introuvable.")
+        if other.id == person.id:
+            raise ValueError("Une personne ne peut pas être son propre proche.")
+    else:
+        info = data.person or PersonIn()
+        if not info.sex and relation in RELATIVE_SEX:
+            info.sex = RELATIVE_SEX[relation]
+        if not (info.given_names or info.surname):
+            # Par défaut, un parent paternel porte souvent le même nom : on ne le présume pas, on laisse vide.
+            pass
+        other = create_person(db, info)
+
+    if relation in ("father", "mother", "parent"):
+        if relation != "parent":
+            existing = _parent_by_sex(db, person.id, RELATIVE_SEX[relation])
+            if existing and existing.id != other.id and data.relation_type in ("biological", "uncertain"):
+                raise ValueError(f"{person.display_name()} a déjà un {RELATIVE_LABEL[relation]} biologique "
+                                 f"({existing.display_name()}). Utilisez « adoptif » ou « incertain », ou modifiez la fiche existante.")
+        relations.append(_link_parent(db, other, person, data.relation_type).id)
+    elif relation in ("son", "daughter", "child"):
+        relations.append(add_relation(db, RelationIn(parent_id=person.id, child_id=other.id, relation_type=data.relation_type)).id)
+        if data.other_parent_id:
+            op = db.get(Person, data.other_parent_id)
+            if op:
+                relations.append(add_relation(db, RelationIn(parent_id=op.id, child_id=other.id, relation_type=data.relation_type)).id)
+                a, b = (person.id, op.id) if person.sex != "F" else (op.id, person.id)
+                find_or_create_family(db, a, b)
+    elif relation in ("brother", "sister", "sibling"):
+        parents = [(p, r) for p, r in parents_of(db, person.id) if r.relation_type in ("biological", "uncertain")]
+        if data.sibling_shared == "father":
+            parents = [(p, r) for p, r in parents if p.sex == "M"]
+        elif data.sibling_shared == "mother":
+            parents = [(p, r) for p, r in parents if p.sex == "F"]
+        if parents:
+            for p, r in parents:
+                relations.append(add_relation(db, RelationIn(parent_id=p.id, child_id=other.id, relation_type=r.relation_type)).id)
+        else:
+            link = SiblingLink(person1_id=person.id, person2_id=other.id,
+                               relation_type={"both": "full", "father": "half", "mother": "half"}.get(data.sibling_shared, "unknown"),
+                               notes="Fratrie déclarée sans parents identifiés")
+            db.add(link)
+            db.flush()
+            relations.append(link.id)
+    elif relation in ("spouse", "husband", "wife"):
+        a, b = (person.id, other.id) if (person.sex == "M" or other.sex == "F") else (other.id, person.id)
+        fam = find_or_create_family(db, a, b)
+        if data.marriage_date or data.marriage_place:
+            fam.union_type = "marriage"
+            ev = Event(family_id=fam.id)
+            apply_event_fields(db, ev, EventIn(event_type="marriage", date=data.marriage_date, place=data.marriage_place))
+            db.add(ev)
+            db.flush()
+        relations.append(fam.id)
+    else:  # grands-parents
+        side_sex = "M" if relation.startswith("paternal") else "F"
+        mid = _parent_by_sex(db, person.id, side_sex)
+        if mid is None:
+            # Un parent existe nécessairement : fiche d'attente explicite (identité à rechercher), jamais un ancêtre inventé.
+            mid = create_person(db, PersonIn(sex=side_sex, notes="Fiche d'attente créée pour relier un grand-parent : "
+                                                               "l'identité de ce parent reste à rechercher.", confidence="grey"))
+            relations.append(_link_parent(db, mid, person, "biological", notes="Lien créé avec une fiche d'attente").id)
+            placeholders.append(mid.id)
+        relations.append(_link_parent(db, other, mid, data.relation_type).id)
+    db.flush()
+    db.refresh(other)
+    index_person(db, other)
+    return {"person": other, "relations": relations, "placeholders": placeholders,
+            "message": f"{other.display_name()} ajouté(e) comme {RELATIVE_LABEL[relation]} de {person.display_name()}."}
+
+
+def subtree_ids(db: Session, person_id: str, scope: str) -> set[str]:
+    if scope == "descendants":
+        return descendant_ids(db, person_id)
+    out: set[str] = set()
+    frontier = [person_id]
+    while frontier:
+        pid = frontier.pop()
+        for r in db.execute(select(ParentChild).where(ParentChild.child_id == pid)).scalars():
+            if r.parent_id not in out:
+                out.add(r.parent_id)
+                frontier.append(r.parent_id)
     return out

@@ -63,15 +63,60 @@ def get_media(media_id: str, db: Session = Depends(get_session)):
     return media_out(m, with_text=True)
 
 
+SANDBOX_CSP = "sandbox; default-src 'none'; img-src * data:; style-src * 'unsafe-inline'; font-src * data:"
+
+
 @router.get("/media/{media_id}/file")
 def media_file(media_id: str, db: Session = Depends(get_session)):
     m = db.get(Media, media_id)
     if not m or not storage.exists(m.path):
         raise HTTPException(404, "Fichier introuvable")
+    headers = {"Cache-Control": "private, max-age=3600"}
+    if (m.mime_type or "").startswith("text/html") or m.path.endswith((".html", ".htm")):
+        headers["Content-Security-Policy"] = SANDBOX_CSP  # page archivée affichée sans script, origine isolée
     if storage.is_remote(m.path):
-        return Response(storage.read_bytes(m.path), media_type=m.mime_type or "application/octet-stream",
-                        headers={"Cache-Control": "private, max-age=3600"})
-    return FileResponse(m.path, media_type=m.mime_type or "application/octet-stream", filename=m.original_filename)
+        return Response(storage.read_bytes(m.path), media_type=m.mime_type or "application/octet-stream", headers=headers)
+    return FileResponse(m.path, media_type=m.mime_type or "application/octet-stream", filename=m.original_filename, headers=headers)
+
+
+@router.post("/media/archive-url")
+def archive_url_endpoint(body: dict, db: Session = Depends(get_session)):
+    """Archive dans l'application un document trouvé en ligne (image, PDF, page web)."""
+    from ..services.web_archive import ArchiveRefused, archive_url
+
+    url = (body.get("url") or "").strip()
+    try:
+        medias = archive_url(db, url, person_id=body.get("person_id") or None, source_id=body.get("source_id") or None,
+                             title=body.get("title") or None)
+    except ArchiveRefused as exc:
+        raise HTTPException(403, str(exc))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    db.commit()
+    return [media_out(m) for m in medias]
+
+
+@router.post("/sources/{source_id}/archive")
+def archive_source(source_id: str, db: Session = Depends(get_session)):
+    from ..models import Citation, Source
+    from ..services.web_archive import ArchiveRefused, archive_url
+
+    src = db.get(Source, source_id)
+    if not src or not src.url:
+        raise HTTPException(404, "Source sans adresse web")
+    person_id = next((c.target_id for c in db.execute(select(Citation).where(Citation.source_id == src.id,
+                                                                             Citation.target_type == "person")).scalars()), None)
+    try:
+        medias = archive_url(db, src.url, person_id=person_id, source_id=src.id, title=src.title)
+    except ArchiveRefused as exc:
+        raise HTTPException(403, str(exc))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if medias:
+        src.local_copy_path = medias[0].id
+        src.local_copy_allowed = True
+    db.commit()
+    return [media_out(m) for m in medias]
 
 
 @router.post("/media/{media_id}/analyze")
@@ -183,8 +228,19 @@ async def csv_import_endpoint(file: UploadFile = File(...), db: Session = Depend
 
 
 @router.get("/export/gedcom")
-def gedcom_export(hide_living: bool = True, db: Session = Depends(get_session)):
-    text = export_gedcom(db, hide_living=hide_living)
+def gedcom_export(hide_living: bool = True, root_id: str | None = None, scope: str | None = None,
+                  db: Session = Depends(get_session)):
+    """Export GEDCOM complet, ou d'un sous-arbre (scope=ancestors|descendants|both depuis root_id)."""
+    only = None
+    if root_id and scope:
+        from ..services.persons import subtree_ids
+
+        only = {root_id}
+        if scope in ("ancestors", "both"):
+            only |= subtree_ids(db, root_id, "ancestors")
+        if scope in ("descendants", "both"):
+            only |= subtree_ids(db, root_id, "descendants")
+    text = export_gedcom(db, hide_living=hide_living, only=only)
     return Response(text, media_type="text/plain; charset=utf-8",
                     headers={"Content-Disposition": "attachment; filename=genealis.ged"})
 
@@ -217,3 +273,12 @@ def report_pdf(root_id: str | None = None, generations: int = 6, db: Session = D
         raise HTTPException(404, "Aucune personne de départ")
     return Response(family_report_pdf(db, root.id, generations), media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=rapport-genealogique.pdf"})
+
+
+@router.get("/export/site.zip")
+def site_export(root_id: str | None = None, db: Session = Depends(get_session)):
+    """Site internet statique de l'arbre (personnes vivantes masquées), à publier où vous voulez."""
+    from ..io.site import build_site
+
+    return Response(build_site(db, root_id), media_type="application/zip",
+                    headers={"Content-Disposition": "attachment; filename=genealis-site.zip"})
