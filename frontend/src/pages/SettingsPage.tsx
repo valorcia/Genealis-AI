@@ -18,7 +18,7 @@ const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
 const isTab = (v: string | null): v is TabKey => TABS.some((t) => t.key === v)
 
 type Values = Record<string, unknown>
-type Health = { status: string; version: string; data_dir: string; serverless?: boolean; database?: string }
+type Health = { status: string; version: string; data_dir: string; serverless?: boolean; database?: string; auth_required?: boolean }
 type AiStatus = { provider: string; available: boolean; ok: boolean; message: string; models?: string[] }
 type Backup = { name: string; size: number; created_at: string; encrypted: boolean }
 type Transmission = { id: number; ts: string; provider: string; purpose: string; payload_summary: string; bytes_sent: number; contains_personal_data: boolean; authorized: boolean }
@@ -533,6 +533,9 @@ function AboutTab({ health }: { health: Health | null }) {
             <dt className="text-mist-500">Version</dt><dd className="font-medium text-night-900">{health ? health.version : <Spinner />}</dd>
             <dt className="text-mist-500">Dossier de données</dt><dd><code className="rounded bg-ivory-200 px-1.5 py-0.5 text-xs text-night-900">{health?.data_dir ?? '—'}</code></dd>
             <dt className="text-mist-500">État du moteur</dt><dd className="text-night-900">{health ? health.status : 'non joignable'}</dd>
+            <dt className="text-mist-500">Mode</dt><dd className="text-night-900">{health ? (health.serverless ? 'Hébergé (Vercel, exécution à la demande)' : 'Local (application de bureau)') : '—'}</dd>
+            <dt className="text-mist-500">Base de données</dt><dd className="text-night-900">{health ? (health.database === 'postgresql' ? <span className="chip conf-green">PostgreSQL (Neon) — connectée</span> : <span className="chip conf-orange">SQLite {health.serverless ? '— attention : éphémère en mode hébergé, connectez Neon' : '(fichier local)'}</span>) : '—'}</dd>
+            <dt className="text-mist-500">Mot de passe d'accès</dt><dd className="text-night-900">{health ? (health.auth_required ? 'activé' : <span className="text-conf-orange">désactivé (définissez ACCESS_TOKEN)</span>) : '—'}</dd>
           </dl>
         </div>
       </Panel>
