@@ -37,6 +37,18 @@ def create_person(data: PersonIn, db: Session = Depends(get_session)):
     return svc.person_detail(db, p)
 
 
+@router.post("/batch", response_model=list[PersonDetail])
+def persons_batch(body: dict, db: Session = Depends(get_session)):
+    """Fiches détaillées de plusieurs personnes en un seul appel (arbres et graphiques)."""
+    ids = [i for i in (body.get("ids") or []) if isinstance(i, str)][:400]
+    out = []
+    for pid in dict.fromkeys(ids):
+        p = db.get(Person, pid)
+        if p:
+            out.append(svc.person_detail(db, p))
+    return out
+
+
 @router.get("/{person_id}/kinship/{other_id}")
 def kinship(person_id: str, other_id: str, db: Session = Depends(get_session)):
     """Lien de parenté : ce que `other_id` est pour `person_id`."""

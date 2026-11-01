@@ -75,7 +75,7 @@ export interface FamilyData { index: FamilyIndex; focus: PersonDetail | null; an
  * et fiches détaillées (conjoints, couples) des descendants affichés — au plus `detailLimit` fiches.
  * Un rechargement garde les données précédentes affichées (pas de clignotement, la vue est conservée).
  */
-export function useFamily(focusId: string | null, up: number, down: number, { detailLimit = 160, withDetails = true }: { detailLimit?: number; withDetails?: boolean } = {}) {
+export function useFamily(focusId: string | null, up: number, down: number, { detailLimit = 400, withDetails = true }: { detailLimit?: number; withDetails?: boolean } = {}) {
   const [data, setData] = useState<FamilyData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -97,7 +97,11 @@ export function useFamily(focusId: string | null, up: number, down: number, { de
       if (withDetails && desc) {
         const ids = desc.nodes.filter((n) => n.id !== focusId).sort((a, b) => a.generation - b.generation).map((n) => n.id)
         partial = ids.length > detailLimit
-        const details = await pool(ids.slice(0, detailLimit), 6, (id) => api.person(id))
+        const wanted = ids.slice(0, detailLimit)
+        const chunks: string[][] = []
+        for (let k = 0; k < wanted.length; k += 80) chunks.push(wanted.slice(k, k + 80))
+        // Un appel groupé par paquet de 80 fiches (au lieu d'un appel par personne) : rapide sur l'hébergement
+        const details = (await pool(chunks, 3, (c) => api.personsBatch(c))).flat()
         if (my !== seq.current) return
         for (const d of details) if (d) addDetail(ix, d)
       }

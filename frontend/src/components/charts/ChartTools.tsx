@@ -38,7 +38,7 @@ function download(blob: Blob, filename: string) {
  */
 export function exportSvg(el: Element | null, filename: string) {
   if (!el) return
-  const safe = filename.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 120) + '.svg'
+  const safe = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w .-]+/g, '-').trim().slice(0, 120) + '.svg'
   if (el instanceof SVGSVGElement) {
     const clone = el.cloneNode(true) as SVGSVGElement
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
@@ -56,7 +56,7 @@ export function exportSvg(el: Element | null, filename: string) {
   const clone = h.cloneNode(true) as HTMLElement
   clone.style.transform = 'none'; clone.style.position = 'relative'; clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml')
   const html = new XMLSerializer().serializeToString(clone)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${ht}" viewBox="0 0 ${w} ${ht}"><foreignObject x="0" y="0" width="${w}" height="${ht}"><div xmlns="http://www.w3.org/1999/xhtml"><style>${collectCss().replace(/<\/style/gi, '')}</style>${html}</div></foreignObject></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${ht}" viewBox="0 0 ${w} ${ht}"><foreignObject x="0" y="0" width="${w}" height="${ht}"><div xmlns="http://www.w3.org/1999/xhtml"><style><![CDATA[${collectCss().replace(/]]>/g, ']] >')}]]></style>${html}</div></foreignObject></svg>`
   download(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), safe)
 }
 

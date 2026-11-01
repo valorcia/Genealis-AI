@@ -60,8 +60,8 @@ function Chain({ people, label }: { people: PersonSummary[]; label: string }) {
         <div key={p.id + i} className="flex flex-col items-center">
           <div className="h-7 w-0.5 bg-[#13918c]/45" />
           <div className="relative">
-            <span className="absolute -left-2 top-1/2 z-10 flex h-5 w-5 -translate-x-full -translate-y-1/2 items-center justify-center rounded-full bg-[#13918c]/10 text-[10px] font-semibold text-[#13918c]" title="Générations depuis l’ancêtre commun">{i + 1}</span>
-            <PersonCard person={p} variant="compact" opts={opts} root={i === people.length - 1} />
+            <span className="absolute -left-2 top-1/2 z-10 hidden h-5 w-5 sm:flex -translate-x-full -translate-y-1/2 items-center justify-center rounded-full bg-[#13918c]/10 text-[10px] font-semibold text-[#13918c]" title="Générations depuis l’ancêtre commun">{i + 1}</span>
+            <PersonCard person={p} variant="compact" opts={opts} root={i === people.length - 1} style={{ width: 'min(196px, 38vw)' }} />
           </div>
         </div>
       ))}
@@ -132,14 +132,14 @@ export default function KinshipPage() {
                 {k.common_ancestors.length > 0 && left.length > 0 && right.length > 0 && <p className="mt-3 text-sm text-mist-500">Ancêtre{k.common_ancestors.length > 1 ? 's' : ''} commun{k.common_ancestors.length > 1 ? 's' : ''} le{k.common_ancestors.length > 1 ? 's' : ''} plus proche{k.common_ancestors.length > 1 ? 's' : ''} : <b className="text-night-900">{k.common_ancestors.map(fullName).join(' et ')}</b></p>}
 
                 {pref.cards && ancestor && (
-                  <div className="mt-8 flex flex-col items-center overflow-x-auto pb-2">
+                  <div className="-mx-3 mt-8 flex flex-col items-center pb-2 sm:mx-0">
                     <div className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-mist-500">{left.length && right.length ? 'Ancêtre commun' : firstName(ancestor)}</div>
                     <PersonCard person={ancestor} variant="compact" opts={opts} root={left.length === 0 || right.length === 0} />
                     {(left.length > 0 || right.length > 0) && <div className="h-4 w-0.5 bg-[#13918c]/45" />}
                     {(left.length > 0 || right.length > 0) && (
-                      <div className="flex justify-center gap-8 sm:gap-16">
-                        {left.length > 0 && <div className="relative">{right.length > 0 && <div className="absolute -right-4 left-1/2 top-0 h-0.5 bg-[#13918c]/45 sm:-right-8" />}<Chain people={left} label={k.by_marriage ? 'Conjoint(e)' : firstName(focus)} /></div>}
-                        {right.length > 0 && <div className="relative">{left.length > 0 && <div className="absolute -left-4 right-1/2 top-0 h-0.5 bg-[#13918c]/45 sm:-left-8" />}<Chain people={right} label={firstName(other)} /></div>}
+                      <div className="flex justify-center gap-4 sm:gap-16">
+                        {left.length > 0 && <div className="relative">{right.length > 0 && <div className="absolute -right-2 left-1/2 top-0 h-0.5 bg-[#13918c]/45 sm:-right-8" />}<Chain people={left} label={k.by_marriage ? 'Conjoint(e)' : firstName(focus)} /></div>}
+                        {right.length > 0 && <div className="relative">{left.length > 0 && <div className="absolute -left-2 right-1/2 top-0 h-0.5 bg-[#13918c]/45 sm:-left-8" />}<Chain people={right} label={firstName(other)} /></div>}
                       </div>
                     )}
                   </div>

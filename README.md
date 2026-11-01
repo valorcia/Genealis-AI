@@ -70,6 +70,8 @@ cd src-tauri ; cargo install tauri-cli --version "^2" ; cargo tauri build
 ```
 
 ## Premier démarrage
+Le plus simple : **Recherche IA → « Démarrer par mes grands-parents »**. Saisissez le couple (même partiellement) et, si vous les connaissez, leurs enfants ; vous n'avez pas besoin de vous saisir vous-même. La recherche IA démarre aussitôt. Ensuite, depuis l'arbre interactif ou une fiche, « Ajouter des proches » ajoute en un geste père, mère, frères et sœurs, enfants, conjoint ou grands-parents.
+
 Mode par défaut : **autonome contrôlé** (le plus simple pour un novice) — le moteur cherche, vérifie, enregistre ce qui est prouvé et vous pose une question uniquement quand les preuves ne suffisent pas. Sur le tableau de bord, le bandeau « Que se passe-t-il ? » vous dit toujours quoi faire ensuite (répondre, lancer, attendre).
 
 L'assistant demande vos informations et celles de vos parents/grands-parents (les champs inconnus peuvent rester vides), propose l'import d'un GEDCOM existant, crée les premières fiches et, si vous l'autorisez, planifie les premières investigations selon le **mode d'autonomie** choisi :
