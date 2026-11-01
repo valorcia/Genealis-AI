@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, X } from 'lucide-react'
 import { API_BASE, ApiError } from '../../api'
 
@@ -119,4 +120,9 @@ export function LinkButton({ children, onClick, disabled }: { children: ReactNod
 /** Mini état vide centré, ton gris. */
 export function SoftEmpty({ title, children }: { title: string; children?: ReactNode }) {
   return <div className="px-2 py-3 text-center"><div className="text-[15px] font-semibold text-mist-400">{title}</div>{children && <div className="mt-1 text-xs text-mist-400">{children}</div>}</div>
+}
+
+/** Rend les feuilles et fenêtres au niveau du document (sinon une carte animée les « emprisonne »). */
+export function Portal({ children }: { children: ReactNode }) {
+  return createPortal(children, document.body)
 }

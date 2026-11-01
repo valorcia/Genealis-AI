@@ -36,7 +36,7 @@ interface Layout { nodes: PNode[]; paths: { d: string; dashed: boolean }[]; band
 
 const rowTop = (rel: number, maxUp: number) => 40 + (maxUp - rel) * ROW_H
 
-type Conn = { kind: 'h'; x1: number; x2: number; y: number; dashed: boolean } | { kind: 'e'; x1: number; y1: number; x2: number; y2: number; dashed: boolean }
+type Conn = { kind: 'h'; x1: number; x2: number; y: number; dashed: boolean } | { kind: 'e'; x1: number; y1: number; x2: number; y2: number; dashed: boolean; rail?: number }
 
 function buildLayout(ix: FamilyIndex, ancestors: ReturnType<typeof sosaIndex>, focusId: string, up: number, down: number, slots: boolean): Layout {
   const focus = ix.persons.get(focusId)
@@ -63,9 +63,9 @@ function buildLayout(ix: FamilyIndex, ancestors: ReturnType<typeof sosaIndex>, f
     const fReal = ancestors.has(2 * s.sosa), mReal = ancestors.has(2 * s.sosa + 1)
     if (fx !== undefined && mx !== undefined) {
       conns.push({ kind: 'h', x1: fx, x2: mx, y: avY(rel), dashed: !(fReal && mReal) })
-      conns.push({ kind: 'e', x1: (fx + mx) / 2, y1: avY(rel), x2: s.center, y2: childTop, dashed: !(fReal || mReal) })
+      conns.push({ kind: 'e', x1: (fx + mx) / 2, y1: avY(rel), x2: s.center, y2: childTop, dashed: !(fReal || mReal), rail: childTop - 38 })
     } else {
-      conns.push({ kind: 'e', x1: (fx ?? mx) as number, y1: rowTop(rel, up) + NODE_H - 6, x2: s.center, y2: childTop, dashed: !(fReal || mReal) })
+      conns.push({ kind: 'e', x1: (fx ?? mx) as number, y1: rowTop(rel, up) + NODE_H - 6, x2: s.center, y2: childTop, dashed: !(fReal || mReal), rail: childTop - 38 })
     }
   }
 
@@ -100,7 +100,7 @@ function buildLayout(ix: FamilyIndex, ancestors: ReturnType<typeof sosaIndex>, f
       const sy = px !== undefined ? avY(rel) : rowTop(rel, up) + NODE_H - 6
       for (const k of g.kids) {
         const kx = xOf.get(k)
-        if (kx !== undefined && placed.get(k)?.parent === d.id) conns.push({ kind: 'e', x1: sx, y1: sy, x2: kx, y2: rowTop(rel - 1, up) - 4, dashed: false })
+        if (kx !== undefined && placed.get(k)?.parent === d.id) conns.push({ kind: 'e', x1: sx, y1: sy, x2: kx, y2: rowTop(rel - 1, up) - 4, dashed: false, rail: rowTop(rel - 1, up) - 42 })
       }
     }
   }
@@ -118,7 +118,7 @@ function buildLayout(ix: FamilyIndex, ancestors: ReturnType<typeof sosaIndex>, f
   const tx = -minX
   for (const n of nodes) n.x += tx
   for (const b of bands) b.x += tx
-  const paths = conns.map((c) => ({ dashed: c.dashed, d: c.kind === 'h' ? `M${c.x1 + tx},${c.y} H${c.x2 + tx}` : elbowPath(c.x1 + tx, c.y1, c.x2 + tx, c.y2, 14) }))
+  const paths = conns.map((c) => ({ dashed: c.dashed, d: c.kind === 'h' ? `M${c.x1 + tx},${c.y} H${c.x2 + tx}` : elbowPath(c.x1 + tx, c.y1, c.x2 + tx, c.y2, 16, true, c.rail) }))
   const minRel = Math.min(...rels)
   return { nodes, paths, bands, w: maxX - minX, h: rowTop(minRel, up) + NODE_H + 60, focusPos: { x: tx, y: rowTop(0, up) + NODE_H / 2 } }
 }
@@ -179,8 +179,10 @@ export default function InteractiveTreePage() {
   const pz = usePanZoom({ contentSize: layout ? { w: layout.w, h: layout.h } : undefined, minScale: 0.05, maxScale: 2.5 })
   const centerFocus = useCallback(() => {
     if (!layout?.focusPos || !pz.viewportRef.current) return
-    const vw = pz.viewportRef.current.clientWidth
-    pz.centerOn(layout.focusPos.x, layout.focusPos.y - 40, Math.max(0.45, Math.min(1, vw / 560)))
+    const vw = pz.viewportRef.current.clientWidth, vh = pz.viewportRef.current.clientHeight
+    const fitK = Math.min((vw - 56) / layout.w, (vh - 130) / layout.h)
+    if (fitK >= 0.55) pz.fit(28, 1, 0, 70)
+    else pz.centerOn(layout.focusPos.x, layout.focusPos.y - 40, Math.max(0.45, Math.min(1, vw / 560)))
   }, [layout, pz])
   const fitKey = layout && data?.focus?.id === focusId ? `${focusId}:${opts.up}` : undefined
 

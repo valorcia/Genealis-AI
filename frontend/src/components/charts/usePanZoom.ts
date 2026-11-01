@@ -13,7 +13,7 @@ export function usePanZoom({ minScale = 0.08, maxScale = 3, contentSize }: { min
   const contentRef = useRef<HTMLDivElement>(null)
   const t = useRef<PanZoomTransform>({ x: 0, y: 0, k: 1 })
   const size = useRef(contentSize)
-  useEffect(() => { size.current = contentSize }, [contentSize])
+  useEffect(() => { if (contentSize) size.current = contentSize }, [contentSize])
   const listeners = useRef(new Set<(t: PanZoomTransform) => void>())
 
   const apply = useCallback(() => {
@@ -135,6 +135,7 @@ export function usePanZoom({ minScale = 0.08, maxScale = 3, contentSize }: { min
   }, [apply])
 
   const subscribe = useCallback((fn: (t: PanZoomTransform) => void) => { listeners.current.add(fn); return () => { listeners.current.delete(fn) } }, [])
-  return { viewportRef, contentRef, fit, centerOn, zoomBy, setTransform, transform: t, subscribe }
+  const setContentSize = useCallback((s: { w: number; h: number }) => { size.current = s }, [])
+  return { viewportRef, contentRef, fit, centerOn, zoomBy, setTransform, transform: t, subscribe, setContentSize }
 }
 export type PanZoom = ReturnType<typeof usePanZoom>

@@ -7,7 +7,7 @@ import {
 import { api, RELATION_LABEL, type CitationOut, type EventOut, type FamilyOut, type LogOut, type MediaOut, type Narrative, type PersonDetail, type PersonIn, type PersonSummary, type RelationOut, type RelativeKind } from '../../api'
 import { useApp } from '../../store'
 import { ConfidenceChip, ConfidenceDot, Markdown, Spinner, formatDate } from '../ui'
-import { ANALYSIS_STATUS_LABEL, Avatar, GroupCard, LinkButton, RELIABILITY_CLASS, RELIABILITY_LABEL, SoftEmpty, ageText, errMsg, isImage } from './helpers'
+import { ANALYSIS_STATUS_LABEL, Avatar, GroupCard, LinkButton, Portal, RELIABILITY_CLASS, RELIABILITY_LABEL, SoftEmpty, ageText, errMsg, isImage } from './helpers'
 import { AddEventSheet, EventSheet, type FamilyChoice } from './EventModal'
 import { MARRIAGE_TYPES, eventIcon, eventLabel } from './eventMeta'
 import { LinkSourceModal } from './LinkSourceModal'
@@ -55,21 +55,21 @@ export function IdentitySection({ p, reload }: Props) {
   return (
     <GroupCard id="identite" title="Identité" tint="#2f6fd1" icon={<IdCard size={18} />}
       actions={dirty ? <button className="btn-primary !px-3 !py-1.5" disabled={busy} onClick={save}>{busy ? <Spinner /> : <Check size={15} />}Enregistrer</button> : undefined}>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {row('Prénom(s)', <input className="input" value={form.given_names} onChange={(e) => setForm({ ...form, given_names: e.target.value })} />)}
-        {row('Nom de naissance', <input className="input" value={form.surname} onChange={(e) => setForm({ ...form, surname: e.target.value })} />)}
-        {row('Nom d’usage / marital', <input className="input" value={form.married_name} onChange={(e) => setForm({ ...form, married_name: e.target.value })} />)}
-        {row('Autres noms (séparés par des virgules)', <input className="input" value={form.name_variants} onChange={(e) => setForm({ ...form, name_variants: e.target.value })} placeholder="ex. Lefebvre, Lefèvre" />)}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 sm:col-span-1">{row('Prénom(s)', <input className="input" value={form.given_names} onChange={(e) => setForm({ ...form, given_names: e.target.value })} />)}</div>
+        <div className="col-span-2 sm:col-span-1">{row('Nom de naissance', <input className="input" value={form.surname} onChange={(e) => setForm({ ...form, surname: e.target.value })} />)}</div>
+        <div className="col-span-2 sm:col-span-1">{row('Nom d’usage / marital', <input className="input" value={form.married_name} onChange={(e) => setForm({ ...form, married_name: e.target.value })} />)}</div>
+        <div className="col-span-2 sm:col-span-1">{row('Autres noms', <input className="input" value={form.name_variants} onChange={(e) => setForm({ ...form, name_variants: e.target.value })} placeholder="ex. Lefebvre, Lefèvre" />)}</div>
         {row('Sexe', <select className="input" value={form.sex} onChange={(e) => setForm({ ...form, sex: e.target.value })}><option value="">Inconnu</option><option value="M">Homme</option><option value="F">Femme</option></select>)}
+        {row(`Vivant${fem(p)} ?`, <select className="input" value={form.is_living} onChange={(e) => setForm({ ...form, is_living: e.target.value })}><option value="">Je ne sais pas</option><option value="yes">Oui</option><option value="no">Non</option></select>)}
         {row('Profession', <input className="input" value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} />)}
         {row('Nationalité', <input className="input" value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} />)}
-        {row(`Vivant${fem(p)} ?`, <select className="input" value={form.is_living} onChange={(e) => setForm({ ...form, is_living: e.target.value })}><option value="">Je ne sais pas</option><option value="yes">Oui (données protégées)</option><option value="no">Non, décédé{fem(p)}</option></select>)}
-        <div className="sm:col-span-2">
-          <span className="label">Âge</span>
+        <div className="col-span-2">
+          <span className="label">Âge (calculé)</span>
           <div className="rounded-xl bg-mist-100 px-3 py-2 text-sm text-night-900">{age ?? <span className="text-mist-500">Pas calculable : il faut au moins une année de naissance (et de décès si la personne est décédée).</span>}</div>
         </div>
-        <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={form.is_root} onChange={(e) => setForm({ ...form, is_root: e.target.checked })} />Personne de départ de l’arbre</label>
-        <div className="sm:col-span-2">{row('Notes', <textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />)}</div>
+        <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_root} onChange={(e) => setForm({ ...form, is_root: e.target.checked })} />Personne de départ de l’arbre</label>
+        <div className="col-span-2">{row('Notes', <textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />)}</div>
       </div>
       {dirty && <button className="btn-primary mt-3 w-full justify-center sm:hidden" disabled={busy} onClick={save}>{busy ? <Spinner /> : <Check size={15} />}Enregistrer l’identité</button>}
       <p className="mt-3 text-xs text-mist-400">Créée le {formatDate(p.created_at)} · modifiée le {formatDate(p.updated_at)}</p>
@@ -145,9 +145,9 @@ export function EventsSection({ p, reload }: Props) {
         </>
       )}
       <button onClick={() => setPicker(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#2f6fd1]/40 py-2.5 text-[15px] font-medium text-[#2f6fd1] hover:bg-[#2f6fd1]/5"><Plus size={16} />Ajouter un événement</button>
-      {picker && <AddEventSheet hasPartner={families.length > 0} onClose={() => setPicker(false)} onPick={(t) => { setPicker(false); setEdit({ event: null, type: t, fromPicker: true }) }} />}
-      {edit && <EventSheet personId={p.id} personName={p.display_name} event={edit.event} presetType={edit.type} presetFamilyId={edit.familyId} families={families}
-        onClose={() => setEdit(null)} onSaved={reload} onBack={edit.fromPicker ? () => { setEdit(null); setPicker(true) } : undefined} />}
+      {picker && <Portal><AddEventSheet hasPartner={families.length > 0} onClose={() => setPicker(false)} onPick={(t) => { setPicker(false); setEdit({ event: null, type: t, fromPicker: true }) }} /></Portal>}
+      {edit && <Portal><EventSheet personId={p.id} personName={p.display_name} event={edit.event} presetType={edit.type} presetFamilyId={edit.familyId} families={families}
+        onClose={() => setEdit(null)} onSaved={reload} onBack={edit.fromPicker ? () => { setEdit(null); setPicker(true) } : undefined} /></Portal>}
     </GroupCard>
   )
 }
@@ -315,7 +315,7 @@ export function FamilySection({ p, reload, onAdd }: Props & { onAdd: (r: AddRequ
               <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-mist-500">
                 <ConfidenceChip level={f.confidence} />
                 {mar.length === 0 ? <span>{f.union_type === 'marriage' ? 'Mariage (date inconnue)' : 'Union'}</span> : mar.map((e) => <span key={e.id}>{eventLabel(e.event_type)} {e.date_display || '?'}{e.place_name ? ` à ${e.place_name}` : ''}</span>)}
-                {f.children_ids.length > 0 && <span>· {f.children_ids.length} enfant(s)</span>}
+                {f.children_ids.length > 0 && <span>{f.children_ids.length} enfant{f.children_ids.length > 1 ? 's' : ''}</span>}
               </div>} />
           })}
           {p.spouses.filter((s) => !p.families.some((f) => f.partner1_id === s.id || f.partner2_id === s.id)).map((s) => <PersonCard key={s.id} person={s} />)}
@@ -439,7 +439,7 @@ export function SourcesSection({ p, reload }: Props) {
           ))}
         </ul>
       )}
-      {open && <LinkSourceModal targetType="person" targetId={p.id} onClose={() => setOpen(false)} onDone={reload} />}
+      {open && <Portal><LinkSourceModal targetType="person" targetId={p.id} onClose={() => setOpen(false)} onDone={reload} /></Portal>}
     </GroupCard>
   )
 }

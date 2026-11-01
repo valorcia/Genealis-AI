@@ -5,7 +5,7 @@ import { api, openExternal, type Advice, type PersonDetail } from '../api'
 import { useApp, pulseEngine } from '../store'
 import { ConfidenceChip, Spinner } from '../components/ui'
 import { AdviceBody } from '../components/person/AdviceBody'
-import { AI, Avatar, ageText, errMsg } from '../components/person/helpers'
+import { AI, Avatar, Portal, ageText, errMsg } from '../components/person/helpers'
 import { AddRelativeMenu, AddRelativeSheet, Sheet } from '../components/relatives/AddRelative'
 import {
   ContradictionsSection, EventsSection, FamilySection, HistorySection, HypothesesSection, IdentitySection, MediaSection, NarrativeSection,
@@ -176,14 +176,14 @@ export default function PersonPage() {
         </div>
       </div>
 
-      {menu && <AddRelativeMenu anchor={anchor} onClose={() => setMenu(false)} onAdded={() => { reload() }} />}
-      {relChoice && <AddRelativeSheet anchor={anchor} choice={relChoice} onClose={() => setRelChoice(null)} onAdded={() => { reload() }} />}
-      {advice && (
+      {menu && <Portal><AddRelativeMenu anchor={anchor} onClose={() => setMenu(false)} onAdded={() => { reload() }} /></Portal>}
+      {relChoice && <Portal><AddRelativeSheet anchor={anchor} choice={relChoice} onClose={() => setRelChoice(null)} onAdded={() => { reload() }} /></Portal>}
+      {advice && (<Portal>
         <Sheet title="Pistes de l’IA" subtitle={p.display_name} onClose={() => setAdvice(null)}>
           {advice.loading && <div className="flex items-center gap-2 py-6 text-sm text-mist-500"><Spinner /> L’IA prépare un plan de recherche…</div>}
           {advice.error && <p className="text-sm text-conf-red">{advice.error}</p>}
           {advice.data && <AdviceBody a={advice.data} />}
-        </Sheet>
+        </Sheet></Portal>
       )}
     </div>
   )

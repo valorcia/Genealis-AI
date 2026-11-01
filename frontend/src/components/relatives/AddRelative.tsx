@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Baby, Heart, Search, Sparkles, UserPlus, Users, X } from 'lucide-react'
 import { api, ApiError, type PersonDetail, type PersonIn, type PersonSummary, type RelativeKind } from '../../api'
 import { useApp } from '../../store'
@@ -151,7 +152,8 @@ export function AddRelativeSheet({ anchor, choice, onBack, onClose, onAdded }: {
 /** Feuille modale (bas d'écran sur mobile, centrée sur ordinateur), au style iOS. */
 export function Sheet({ title, subtitle, children, onClose, onBack }: { title: string; subtitle?: string; children: ReactNode; onClose: () => void; onBack?: () => void }) {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [onClose])
-  return (
+  // Rendu dans document.body : une carte animée (transform) ne doit pas piéger la feuille « fixed ».
+  return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/30 backdrop-blur-[2px] sm:items-center" onClick={onClose}>
       <div className="fade-up max-h-[88vh] w-full overflow-auto rounded-t-3xl bg-[#f4f5fa] p-4 shadow-2xl sm:max-w-lg sm:rounded-3xl" onClick={(e) => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-black/15 sm:hidden" />
@@ -164,6 +166,7 @@ export function Sheet({ title, subtitle, children, onClose, onBack }: { title: s
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -134,11 +134,34 @@ export function useAncestors(focusId: string | null, generations: number) {
 
 export const sosaGen = (s: number) => Math.floor(Math.log2(s))
 
-/** sosa → personne (une personne en implexe apparaît sous chacun de ses numéros, sans réexpansion). */
+const REL_RANK: Record<string, number> = { biological: 0, legal: 1, adoptive: 2, uncertain: 3, foster: 4, step: 5 }
+
+/**
+ * sosa → personne, recalculé à partir des liens : père = 2n, mère = 2n+1, en privilégiant la filiation biologique
+ * (un beau-parent ne prend jamais la place d'un parent). Une personne en implexe n'est développée qu'une fois.
+ */
 export function sosaIndex(g: TreeGraph | null) {
   const m = new Map<number, TreeNode>()
-  if (!g) return m
-  for (const n of g.nodes) for (const s of n.sosa ?? []) if (!m.has(s)) m.set(s, n)
+  if (!g || !g.nodes.length) return m
+  const byId = new Map(g.nodes.map((n) => [n.id, n]))
+  const parents = new Map<string, { id: string; rank: number }[]>()
+  for (const e of g.edges) { const a = parents.get(e.target) ?? []; a.push({ id: e.source, rank: REL_RANK[e.relation_type] ?? 3 }); parents.set(e.target, a) }
+  const root = byId.get(g.root_id) ?? g.nodes.find((n) => n.generation === 0)
+  if (!root) return m
+  const expanded = new Set<string>()
+  const queue: [number, TreeNode][] = [[1, root]]
+  while (queue.length) {
+    const [s, p] = queue.shift() as [number, TreeNode]
+    m.set(s, p)
+    if (expanded.has(p.id)) continue
+    expanded.add(p.id)
+    const ps = (parents.get(p.id) ?? []).sort((a, b) => a.rank - b.rank).map((x) => byId.get(x.id)).filter((x): x is TreeNode => !!x)
+    let father = ps.find((x) => x.sex === 'M') ?? null
+    let mother = ps.find((x) => x.sex === 'F') ?? null
+    for (const x of ps) { if (x.sex) continue; if (!father) father = x; else if (!mother) mother = x }
+    if (father) queue.push([2 * s, father])
+    if (mother) queue.push([2 * s + 1, mother])
+  }
   return m
 }
 
@@ -230,15 +253,15 @@ export function layoutDesc(rootId: string, kidsOf: (id: string) => string[], blo
 }
 
 /** Chemin orthogonal à coins arrondis (connecteurs « en coude »). */
-export function elbowPath(x1: number, y1: number, x2: number, y2: number, r = 12, vertical = true) {
+export function elbowPath(x1: number, y1: number, x2: number, y2: number, r = 12, vertical = true, mid?: number) {
   if (vertical) {
-    const my = (y1 + y2) / 2
+    const my = mid ?? (y1 + y2) / 2
     if (Math.abs(x2 - x1) < 1) return `M${x1},${y1} V${y2}`
     const rr = Math.min(r, Math.abs(x2 - x1) / 2, Math.abs(my - y1))
     const sx = Math.sign(x2 - x1), sy = Math.sign(y2 - y1)
     return `M${x1},${y1} V${my - sy * rr} Q${x1},${my} ${x1 + sx * rr},${my} H${x2 - sx * rr} Q${x2},${my} ${x2},${my + sy * rr} V${y2}`
   }
-  const mx = (x1 + x2) / 2
+  const mx = mid ?? (x1 + x2) / 2
   if (Math.abs(y2 - y1) < 1) return `M${x1},${y1} H${x2}`
   const rr = Math.min(r, Math.abs(y2 - y1) / 2, Math.abs(mx - x1))
   const sx = Math.sign(x2 - x1), sy = Math.sign(y2 - y1)

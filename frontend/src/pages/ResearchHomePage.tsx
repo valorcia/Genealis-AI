@@ -7,7 +7,7 @@ import {
 import { api, openExternal, type Advice, type Discovery, type PersonSummary, type Priority, type QuestionOut } from '../api'
 import { useApp, pulseEngine } from '../store'
 import { Spinner, formatTs } from '../components/ui'
-import { AI, Avatar, ageText, errMsg } from '../components/person/helpers'
+import { AI, Avatar, Portal, ageText, errMsg } from '../components/person/helpers'
 import { AdviceBody } from '../components/person/AdviceBody'
 import { AddRelativeMenu } from '../components/relatives/AddRelative'
 
@@ -28,7 +28,7 @@ function Card({ title, icon, actions, children, className = '' }: { title: React
   return (
     <section className={`fade-up rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(20,40,80,0.06),0_10px_30px_-18px_rgba(20,40,80,0.35)] ring-1 ring-black/5 sm:p-5 ${className}`}>
       <header className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="flex min-w-0 items-center gap-2 text-[18px] font-bold text-night-900">{icon && <span style={{ color: AI.color }}>{icon}</span>}<span className="truncate">{title}</span></h2>
+        <h2 className="flex min-w-0 items-center gap-2 text-[18px] font-bold text-night-900">{icon && <span style={{ color: AI.color }}>{icon}</span>}<span className="leading-tight">{title}</span></h2>
         {actions}
       </header>
       {children}
@@ -259,7 +259,7 @@ function WhoToFind({ persons, priorities, onChanged }: { persons: PersonSummary[
           )}
         </div>
       )}
-      {menu && selected && <AddRelativeMenu anchor={{ id: selected.id, display_name: selected.display_name, sex: selected.sex, surname: selected.surname }} onClose={() => setMenu(false)} onAdded={() => onChanged()} />}
+      {menu && selected && <Portal><AddRelativeMenu anchor={{ id: selected.id, display_name: selected.display_name, sex: selected.sex, surname: selected.surname }} onClose={() => setMenu(false)} onAdded={() => onChanged()} /></Portal>}
     </Card>
   )
 }

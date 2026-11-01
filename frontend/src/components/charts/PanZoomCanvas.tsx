@@ -18,7 +18,8 @@ export default function PanZoomCanvas({ pz, width, height, fitKey, children, bac
   maxFit?: number; onFitted?: () => void; className?: string; overlay?: ReactNode
 }) {
   const fitted = useRef<string | number | undefined>(undefined)
-  const { fit } = pz
+  const { fit, setContentSize } = pz
+  useEffect(() => { setContentSize({ w: width, h: height }) }, [width, height, setContentSize])
   useEffect(() => {
     if (fitKey === undefined || fitted.current === fitKey || !width || !height) return
     fitted.current = fitKey

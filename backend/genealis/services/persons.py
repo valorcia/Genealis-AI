@@ -83,8 +83,8 @@ def compute_age(p: Person, birth: Optional[Event], death: Optional[Event]) -> di
         context = "au décès"
         exact_end = death.date_kind == "exact"
     else:
-        if p.is_living is False or today.year - by > 105:
-            return empty  # décédé sans date connue : on ne calcule rien
+        if p.is_living is not True or today.year - by > 110:
+            return empty  # vivant non confirmé ou décédé sans date : on ne calcule rien
         ey, em, ed = today.year, today.month, today.day
         context = "aujourd'hui"
         exact_end = True
