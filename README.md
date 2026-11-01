@@ -3,6 +3,14 @@
 Application locale de généalogie intelligente et de recherche historique autonome.
 Elle construit votre arbre à partir des archives **sans jamais inventer une personne, une filiation, une date ou un événement**, conserve la chaîne complète des sources, signale les contradictions et vous pose des questions quand une décision ne peut pas être tranchée par les preuves.
 
+## Nouveautés v0.4
+
+- **Centre d'investigation** (`/investigation`) : « Lancer une enquête autonome » sur un ancêtre. Le GENEALIS RESEARCH DIRECTOR planifie, cherche dans les sources gratuites et sur le web avec Gemini (sources citées), envoie le navigateur autonome sur les sites d'archives, lit les actes, compare les personnes, propose les filiations selon le niveau de preuve et remonte génération par génération. Témoins et relations indirectes (« oncle maternel de l'épouse ») analysés en priorité. → `docs/ENQUETES_AUTONOMES.md`
+- **Lecture des écritures anciennes** (`/documents/<id>/lecture`) : transcription fidèle ligne par ligne liée à l'image, version normalisée, traduction, passages incertains avec plusieurs lectures, vos corrections mémorisées. → `docs/PALEOGRAPHIE.md`
+- **Navigateur autonome sur votre PC** (Playwright + Browser Use open source, gratuit) : il ouvre les sites d'archives, ne contourne jamais un CAPTCHA, une connexion ou un abonnement (il vous passe la main). → `docs/INSTALLATION_WINDOWS.md`, `docs/NAVIGATION_AUTONOME.md`
+- **Coûts et quotas** (`/couts`) : appels IA comptés, cache, plafonds vérifiés avant l'envoi, modes GRATUIT / HYBRIDE / COMMERCIAL.
+- Architecture et contrats : `docs/ARCHITECTURE_V04.md`.
+
 ## Architecture
 
 | Couche | Technologie | Rôle |
