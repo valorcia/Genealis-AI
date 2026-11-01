@@ -84,7 +84,7 @@ def _stamp_or_upgrade(engine) -> None:
             return
         cfg = Config(str(ini))
         cfg.set_main_option("script_location", str(here / "alembic"))
-        os.environ["GENEALIS_ALEMBIC_URL"] = str(engine.url)
+        os.environ["GENEALIS_ALEMBIC_URL"] = engine.url.render_as_string(hide_password=False)
         os.environ["GENEALIS_NO_ALEMBIC_LOGGING"] = "1"
         head = ScriptDirectory.from_config(cfg).get_current_head()
         with engine.connect() as conn:
