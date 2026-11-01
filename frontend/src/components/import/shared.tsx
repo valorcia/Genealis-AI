@@ -31,7 +31,7 @@ export const LANG_LABEL: Record<string, string> = { fr: 'français', la: 'latin'
 export function HighlightedText({ text, className = '' }: { text: string; className?: string }) {
   const parts = useMemo(() => text.split(/(\[\?[^\]]*\])/g), [text])
   return (
-    <p className={`whitespace-pre-wrap font-display text-[15px] leading-relaxed text-night-900 ${className}`}>
+    <p className={`whitespace-pre-wrap break-words font-display text-[15px] leading-relaxed text-night-900 ${className}`}>
       {parts.map((part, i) => {
         const m = /^\[\?([^\]]*)\]$/.exec(part)
         return m

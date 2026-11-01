@@ -193,7 +193,8 @@ def test_dictionnaire_des_metiers():
     assert len(TRADES) >= 80
     for t in TRADES:
         assert t["definition"] and len(t["description"]) > 60
-    assert lookup_trade("Manœuvre")["key"] == "manouvrier"
+    assert lookup_trade("Manouvrière")["key"] == "manouvrier"
+    assert lookup_trade("Manœuvre")["key"] == "manoeuvre"
     assert lookup_trade("tisserand en coton")["key"] == "tisserand"
     assert lookup_trade("institutrice")["key"] == "instituteur"
     assert lookup_trade("Maréchal ferrant")["key"] == "marechal-ferrant"

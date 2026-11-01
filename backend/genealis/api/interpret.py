@@ -93,6 +93,8 @@ def analyze_now(media_id: str, body: ReadingOptions | None = None, db: Session =
     data = res.to_dict()
     if kind:
         data["requested_kind"] = kind
+    if (m.analysis or {}).get("applied"):
+        data["applied"] = m.analysis["applied"]  # mémoire d'une interprétation déjà appliquée
     m.ocr_text = res.transcription
     m.language = res.language if res.language != "?" else m.language
     m.analysis = data

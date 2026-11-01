@@ -195,6 +195,11 @@ def age_text(a: Optional[tuple[int, bool]]) -> Optional[str]:
     return f"environ {s}" if approx else s
 
 
+def de(s: str) -> str:
+    """« de » avec élision : de(« Émile ») -> « d'Émile »."""
+    return ("d'" if s[:1].lower() in "aeiouyéèêëàâîïôöûüh" and not s.lower().startswith(("hu", "ha", "he", "hi", "ho")) else "de ") + s
+
+
 def join_fr(items: list[str], last: str = "et") -> str:
     items = [i for i in items if i]
     if not items:
@@ -711,12 +716,12 @@ def _declaration_sentence(p: Person, ev: Event, kind: str) -> Optional[str]:
                 s += f" devant {officer}{',' if ',' in officer else ''}"
             s += " par " + join_fr([participant_text(x) for x in decl])
             if wit:
-                s += ", en présence de " + join_fr([participant_text(x) for x in wit])
+                s += ", en présence " + de(join_fr([participant_text(x) for x in wit]))
             sentences.append(s + ".")
         elif officer or wit:
             s = "Mon acte de naissance a été dressé" + (f" par {officer}" if officer else "")
             if wit:
-                s += ", en présence de " + join_fr([participant_text(x) for x in wit])
+                s += ", en présence " + de(join_fr([participant_text(x) for x in wit]))
             sentences.append(s + ".")
     elif kind == "baptism":
         if gp:
@@ -768,7 +773,7 @@ def _sosa_sentence(db: Session, p: Person, sosa: dict[str, list[int]]) -> tuple[
         gen_up = generation_of(n) - 1
         s = f"Dans l'arbre, je porte le numéro Sosa {n}"
         anc = g(p, "un ancêtre", "une ancêtre", "un ancêtre")
-        s += f" : je suis {anc}{' de ' + root_p.display_name() if root_p else ''} à la {ordinal(gen_up)} génération"
+        s += f" : je suis {anc}{' ' + de(root_p.display_name()) if root_p else ''} à la {ordinal(gen_up)} génération"
         line_child = None
         for c, r in children_of(db, p.id):
             if r.relation_type in LINEAL and any(x == n // 2 for x in sosa.get(c.id, [])):
@@ -788,11 +793,11 @@ def _sosa_sentence(db: Session, p: Person, sosa: dict[str, list[int]]) -> tuple[
 
             k = kinship(db, root_p.id, p.id)
             if k.get("found") and k.get("relation") and "votre" not in k["relation"]:
-                return (f"Je ne fais pas partie de l'ascendance directe de {root_p.display_name()} : dans l'arbre, "
-                        f"je suis {k['relation']} de {root_p.display_name()}."), None
+                return (f"Je ne fais pas partie de l'ascendance directe {de(root_p.display_name())} : dans l'arbre, "
+                        f"je suis {k['relation']} {de(root_p.display_name())}."), None
         except Exception:
             pass
-        return f"Je ne fais pas partie de l'ascendance directe de {root_p.display_name()}.", None
+        return f"Je ne fais pas partie de l'ascendance directe {de(root_p.display_name())}.", None
     return None, None
 
 
@@ -1010,7 +1015,7 @@ def chapter(db: Session, p: Person, *, with_wiki: bool = True, budget_seconds: f
             bits = []
             if sp_f or sp_m:
                 fille = g(sp, "le fils", "la fille", "l'enfant")
-                bits.append(f"{Pron} était {fille} de " + " et de ".join(x.display_name() for x in (sp_f, sp_m) if x))
+                bits.append(f"{Pron} était {fille} " + " et ".join(de(x.display_name()) for x in (sp_f, sp_m) if x))
             if sp.occupation:
                 la = g(sp, "le", "la", "")
                 bits.append(f"les documents {la + ' ' if la else ''}disent {sp.occupation}".replace("  ", " "))
@@ -1338,9 +1343,9 @@ def acts(db: Session, p: Person) -> list[dict]:
             f = db.get(Family, e.family_id)
             names = [db.get(Person, x).display_name() for x in (f.partner1_id, f.partner2_id) if x and db.get(Person, x)] if f else []
             if names:
-                title += " de " + " et ".join(names)
+                title += " " + de(" et ".join(names))
         else:
-            title += f" de {p.display_name()}"
+            title += " " + de(p.display_name())
         md = _media_dict(media) if media is not None else None
         if md:
             used_media.add(md["id"])

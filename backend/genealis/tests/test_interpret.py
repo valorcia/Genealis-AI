@@ -339,3 +339,21 @@ def test_outils_dates_et_liens():
     assert not dates_compatible(e2, parse_gendate("1956-04-12"))
     e3 = Event(event_type="marriage", date_kind="exact", date_start="1955-06-02", sort_year=1955)
     assert not dates_compatible(e3, parse_gendate("1955-06-03")) and dates_compatible(e3, parse_gendate("1955"))
+
+
+def test_second_passage_reconnait_les_fiches_creees(db, fake_ai, tmp_path):
+    """Réimporter le même acte : les parents créés au premier passage sont reconnus par le contexte familial, pas recréés."""
+    build_fictional_family(db)
+    m = import_file(db, _png(tmp_path), title="Mariage")
+    _analyze(db, m, marriage_json(), fake_ai)
+    apply_proposals(db, m, _default_ids(get_proposals(db, m)), {})
+    _analyze(db, m, marriage_json(), fake_ai)
+    props = get_proposals(db, m, refresh=True)
+    people = {p["index"]: p for p in props["people"]}
+    for i in (2, 3, 4, 5):
+        assert people[i]["resolution"] == "match", people[i]
+    acts = {a["id"]: a for a in props["actions"]}
+    assert acts["rel:parent:5:1"]["mode"] == "exists" and not any(a["kind"] == "create_person" and a["checked"] for a in props["actions"])
+    before = db.execute(select(Person)).scalars().all()
+    apply_proposals(db, m, _default_ids(props), {})
+    assert len(db.execute(select(Person)).scalars().all()) == len(before)

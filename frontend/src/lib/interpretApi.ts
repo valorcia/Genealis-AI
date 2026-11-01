@@ -35,7 +35,7 @@ export interface Proposals {
 export interface ApplySummary {
   created_persons: { id: string; name: string; index: number; role: string }[]
   linked_persons: { id: string; name: string; index: number; role: string }[]
-  events: { id: string; event_type: string; person_id: string | null; family_id: string | null; mode: string; changes?: string[] }[]
+  events: { id: string; event_type: string; person_id: string | null; family_id: string | null; mode: string; changes?: string[]; who?: string; date?: string | null }[]
   relations: { id: string | null; kind: string; label: string }[]
   sources: { id: string; title: string; reliability: string }[]
   questions: { id: string; title: string }[]

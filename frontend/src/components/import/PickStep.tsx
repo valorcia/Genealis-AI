@@ -76,7 +76,7 @@ export function PickStep({ files, setFiles, person, setPerson, kind, setKind, ca
         </Callout>
       )}
 
-      <div className="sticky bottom-[calc(var(--dock-h)+8px)] z-20">
+      <div className="sticky bottom-2 z-20 rounded-2xl bg-white/85 p-2 shadow-[0_-6px_24px_-12px_rgba(28,35,51,0.35)] backdrop-blur">
         <button type="button" className="btn-gold w-full !min-h-13 !rounded-2xl !text-[17px]" disabled={files.length === 0 || busy} onClick={onStart}>
           <Sparkles size={19} />{files.length > 1 ? `Lire les ${files.length} documents` : 'Lire le document'}
         </button>

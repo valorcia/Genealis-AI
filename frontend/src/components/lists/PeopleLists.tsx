@@ -16,7 +16,9 @@ const letterOf = (s: string | null | undefined) => {
 const jump = (prefix: string) => (l: string) => document.getElementById(`${prefix}-${l}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 
 /* ------------------------------------------------------------------ */
-type PSort = 'nom' | 'prenom' | 'naissance' | 'deces'
+type PSort = 'nom' | 'prenom' | 'naissance' | 'deces' | 'sosa'
+const sosaOf = (p: PersonSummary) => (p.sosa && p.sosa.length ? Math.min(...p.sosa) : null)
+const genOf = (n: number) => Math.floor(Math.log2(n)) + 1
 export function PersonsList({ search, setSearch, autoFocus }: ListProps) {
   const { data, loading, error, reload } = useLoader<PersonSummary[]>(() => api.persons(undefined, 2000), [])
   const [sort, setSort] = useState<PSort>('nom')
@@ -26,12 +28,14 @@ export function PersonsList({ search, setSearch, autoFocus }: ListProps) {
     const key = (p: PersonSummary): string => {
       if (sort === 'nom') return letterOf(p.surname || p.display_name)
       if (sort === 'prenom') return letterOf(p.given_names || p.display_name)
+      if (sort === 'sosa') { const n = sosaOf(p); return n ? `${genOf(n)}` : '—' }
       const y = sort === 'naissance' ? p.birth_year : p.death_year
       return y ? `${Math.floor(y / 10) * 10}` : '—'
     }
     const cmp = (a: PersonSummary, b: PersonSummary) => {
       if (sort === 'nom') return normalize(`${a.surname ?? ''} ${a.given_names ?? ''}`).localeCompare(normalize(`${b.surname ?? ''} ${b.given_names ?? ''}`))
       if (sort === 'prenom') return normalize(`${a.given_names ?? ''} ${a.surname ?? ''}`).localeCompare(normalize(`${b.given_names ?? ''} ${b.surname ?? ''}`))
+      if (sort === 'sosa') return (sosaOf(a) ?? 1e15) - (sosaOf(b) ?? 1e15) || normalize(`${a.surname ?? ''} ${a.given_names ?? ''}`).localeCompare(normalize(`${b.surname ?? ''} ${b.given_names ?? ''}`))
       const ya = (sort === 'naissance' ? a.birth_year : a.death_year) ?? 99999, yb = (sort === 'naissance' ? b.birth_year : b.death_year) ?? 99999
       return ya - yb || a.display_name.localeCompare(b.display_name)
     }
@@ -55,16 +59,16 @@ export function PersonsList({ search, setSearch, autoFocus }: ListProps) {
   return (
     <PageFrame title="Liste des personnes" subtitle={data ? `${groups.total} personne${groups.total > 1 ? 's' : ''}` : undefined} color={LC} search={search} onSearch={setSearch} autoFocus={autoFocus} searchPlaceholder="Nom, prénom, lieu, métier…"
       help={<p>Touchez une personne pour ouvrir sa fiche. L’index à droite permet de sauter directement à une lettre ; le point coloré indique la fiabilité de la fiche.</p>}
-      toolbar={<ChipBar>{([['nom', 'Nom'], ['prenom', 'Prénom'], ['naissance', 'Naissance'], ['deces', 'Décès']] as [PSort, string][]).map(([k, l]) => <Chip key={k} active={sort === k} onClick={() => setSort(k)} color={LC}>{l}</Chip>)}</ChipBar>}>
+      toolbar={<ChipBar>{([['nom', 'Nom'], ['prenom', 'Prénom'], ['naissance', 'Naissance'], ['deces', 'Décès'], ['sosa', 'Trier par Sosa']] as [PSort, string][]).map(([k, l]) => <Chip key={k} active={sort === k} onClick={() => setSort(k)} color={LC}>{l}</Chip>)}</ChipBar>}>
       {loading && <LoadingState color={LC} />}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && groups.total === 0 && <EmptyState icon={<Users size={28} />} color={LC} title={search ? 'Aucun résultat' : 'Aucune personne'}>{search ? `Aucune personne ne correspond à « ${search} ».` : 'Commencez par ajouter vos grands-parents depuis « Démarrer ».'}</EmptyState>}
       <div className="pr-5 sm:pr-8">
         {groups.keys.map((k) => (
-          <Group key={k} id={`p-${k}`} title={sort === 'naissance' || sort === 'deces' ? (k === '—' ? 'Date inconnue' : `Années ${k}`) : k}>
+          <Group key={k} id={`p-${k}`} title={sort === 'sosa' ? (k === '—' ? 'Hors ascendance directe' : `Génération ${k}`) : sort === 'naissance' || sort === 'deces' ? (k === '—' ? 'Date inconnue' : `Années ${k}`) : k}>
             {groups.map.get(k)!.map((p) => (
               <Row key={p.id} to={`/personnes/${p.id}`} left={<PersonAvatar p={p} size={38} />} title={<>{nameNode(p)}{p.is_root && <span className="ml-1 text-[#f5b400]">★</span>}</>} subtitle={sub(p) || 'Aucune date'}
-                right={<ConfidenceDot level={p.confidence} />} />
+                right={<span className="flex items-center gap-2">{(p.sosa?.length ?? 0) > 0 && <span className="rounded-full border border-brass-300/70 bg-brass-200/50 px-1.5 py-px text-[11px] font-semibold tabular-nums text-brass-600" title="Numéro Sosa">Sosa {p.sosa!.join(' · ')}</span>}<ConfidenceDot level={p.confidence} /></span>} />
             ))}
           </Group>
         ))}

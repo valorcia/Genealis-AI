@@ -465,7 +465,10 @@ def _resolve_people(ctx: Ctx) -> None:
                     if rp.id in used:
                         continue
                     r = score_candidate(db, _candidate(ctx, p, drop_surname=bool(p.get("surname_inherited"))), rp)
-                    if not r.blocking and r.total >= 50:
+                    # Le lien déjà présent dans l'arbre est lui-même un indice fort : des noms concordants suffisent ici
+                    names = [c for c in r.criteria if c.name in ("surname", "given_names")]
+                    names_ok = bool(names) and any(c.name == "given_names" for c in names) and all(c.score >= 0.8 for c in names)
+                    if not r.blocking and (r.total >= 50 or names_ok):
                         if context_hit is None or r.total > context_hit[0].total:
                             context_hit = (r, rp)
                     elif anc[1] == "parent" and r.blocking and any(b.startswith(("Prénoms", "Patronymes")) for b in r.blocking):
@@ -643,6 +646,7 @@ def _relation_action(ctx: Ctx, kin: str, a: int, b: int, *, recommended: bool = 
             mode = "exists"
     if mode == "exists":
         label = f"Lien déjà présent : {label} (ajout de la source)"
+        recommended, note = True, None  # le lien existe déjà : seule la source est ajoutée
     if note:
         label += f" {note}"
     _add_action(ctx, aid, "relation", "verify" if mode == "conflict" else "relations", label, requires=[a, b],
@@ -1127,7 +1131,8 @@ def apply_proposals(db: Session, media: Media, action_ids: list[str], overrides:
                 ev = add_event(db, person.id, EventIn(event_type="occupation", date=str(pl.get("year") or ""), description=pl["value"],
                                                       value_original=pl["value"], attributes={"media_id": media.id}, confidence="orange"))
                 run.cite("event", ev.id, _excerpt(run.transcription, pl["value"]))
-                run.summary["events"].append({"id": ev.id, "event_type": "occupation", "person_id": person.id, "family_id": None, "mode": "added"})
+                run.summary["events"].append({"id": ev.id, "event_type": "occupation", "person_id": person.id, "family_id": None, "mode": "added",
+                                              "who": person.display_name()})
         elif kind == "relation":
             _apply_relation(run, a, people, ask)
         elif kind == "event":
@@ -1330,7 +1335,7 @@ def _apply_event(run: _Run, a: dict, people: dict[int, dict], ask, *, primary: b
         db.flush()
         run.cite("event", target.id, excerpt, conf)
         run.summary["events"].append({"id": target.id, "event_type": etype, "person_id": target.person_id, "family_id": target.family_id,
-                                      "mode": "completed", "changes": changes})
+                                      "mode": "completed", "changes": changes, "who": who})
         run.log(f"{EVENT_FR.get(etype, etype).lower()} de {who} complété(e) avec la source" + (f" : {', '.join(changes)}" if changes else ""),
                 person.id if person else None)
         return
@@ -1340,7 +1345,8 @@ def _apply_event(run: _Run, a: dict, people: dict[int, dict], ask, *, primary: b
                            attributes=attrs if (pl.get("main") or etype in SINGLE_EVENTS) else {"media_id": media.id, "source_id": attrs["source_id"]},
                            confidence=conf, family_id=family.id if family else None))
     run.cite("event", ev.id, excerpt, conf)
-    run.summary["events"].append({"id": ev.id, "event_type": etype, "person_id": ev.person_id, "family_id": ev.family_id, "mode": "added"})
+    run.summary["events"].append({"id": ev.id, "event_type": etype, "person_id": ev.person_id, "family_id": ev.family_id, "mode": "added",
+                                  "who": who, "date": ev.date_original or (ev.date_start or None)})
     run.log(f"{EVENT_FR.get(etype, etype).lower()} ajouté(e) pour {who}" + (f" ({', '.join(x for x in (_when(pl.get('date'), None), place) if x)})" if (pl.get("date") or place) else ""),
             person.id if person else None)
     if person is not None:

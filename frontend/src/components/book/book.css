@@ -70,6 +70,8 @@
   float: left; font-family: "Alegreya", Georgia, serif; font-weight: 700; font-size: 3.35em; line-height: 0.86;
   padding: 0.04em 0.09em 0 0; color: var(--bk-sepia);
 }
+.book-name { hyphens: manual; -webkit-hyphens: manual; }
+@media (max-width: 479px) { .book-text p { text-align: left; } .book-desk { padding: 12px 4px 26px; border-radius: 16px; } .book-page { padding: 22px 16px 26px; } }
 .book-text sup.book-ref { font-family: "Inter", system-ui, sans-serif; font-size: 9.5px; font-weight: 600; color: var(--bk-gold-deep); margin-left: 1px; }
 .book-text sup.book-ref a { text-decoration: none; color: inherit; }
 .book-text .is-sosa { font-style: italic; }
@@ -144,13 +146,14 @@
 .book-transcription { white-space: pre-wrap; text-align: justify; font-size: 14.5px; line-height: 1.6; }
 
 /* Impression : A4, un chapitre par série de pages, sans l'interface */
-@page { size: A4; margin: 16mm 15mm 18mm; @bottom-center { content: counter(page); font-family: "Alegreya", Georgia, serif; font-size: 10pt; color: #85785f; } }
+@page book { size: A4; margin: 16mm 15mm 18mm; @bottom-center { content: counter(page); font-family: "Alegreya", Georgia, serif; font-size: 10pt; color: #85785f; } }
 @media print {
   body:has(.book-root) { background: #fff !important; }
   body:has(.book-root) :is(#root, #root *):not(.book-root, .book-root *) {
     overflow: visible !important; height: auto !important; max-height: none !important; min-height: 0 !important;
     padding: 0 !important; margin: 0 !important; max-width: none !important; box-shadow: none !important; background: transparent !important;
   }
+  .book-root { page: book; }
   .book-noprint { display: none !important; }
   .book-desk { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0; }
   .book-page { max-width: none; margin: 0; padding: 0; box-shadow: none; background: #fff; break-after: page; font-size: 11.5pt; }
