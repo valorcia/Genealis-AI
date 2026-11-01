@@ -12,6 +12,8 @@ from datetime import timedelta
 import httpx
 import pytest
 
+import genealis.main  # noqa: F401 - charge l'application (et le module paléo) avant que `isolate` ne le masque
+
 from genealis.investigation import director, handlers, memory, network, queue, strategy, verification
 from genealis.models import (AICallLog, Citation, Contradiction, Hypothesis, Investigation, InvestigationTask, Media, ParentChild,
                              Person, PersonMention, Question, Source, utcnow)

@@ -162,7 +162,7 @@ export const ALL_TILES: (Tile & { section: SectionId })[] = SECTIONS.flatMap((s)
 /** Section d'une route (première tuile correspondante), pour colorer la page courante. */
 export function sectionForPath(pathname: string): SectionId {
   if (pathname.startsWith('/livre')) return 'livre'
-  if (pathname === '/' || pathname.startsWith('/demarrer') || pathname.startsWith('/documents') || pathname.startsWith('/sources-consultees') || pathname.startsWith('/enquetes') || pathname.startsWith('/questions') || pathname.startsWith('/assistant') || pathname.startsWith('/tableau-de-bord')) return 'recherche'
+  if (pathname === '/' || pathname.startsWith('/demarrer') || pathname.startsWith('/documents') || pathname.startsWith('/sources-consultees') || pathname.startsWith('/enquetes') || pathname.startsWith('/questions') || pathname.startsWith('/assistant') || pathname.startsWith('/tableau-de-bord') || pathname.startsWith('/investigation') || pathname.startsWith('/couts')) return 'recherche'
   if (pathname.startsWith('/section/')) return (pathname.split('/')[2] as SectionId) || 'recherche'
   if (pathname.startsWith('/graphiques') || pathname === '/arbre' || pathname.startsWith('/chronologie')) return 'graphiques'
   if (pathname.startsWith('/vues') || pathname.startsWith('/carte')) return 'vues'

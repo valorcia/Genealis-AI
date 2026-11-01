@@ -232,6 +232,17 @@ def open_hypotheses(db: Session, inv: Investigation) -> int:
     return db.query(Hypothesis).filter(Hypothesis.task_id.in_(ids), Hypothesis.status == "open").count()
 
 
+def _anything_found(db: Session, inv: Investigation) -> bool:
+    """Vrai si l'enquête a produit au moins une piste, un document, une mention ou une hypothèse."""
+    for t in db.query(InvestigationTask).filter(InvestigationTask.investigation_id == inv.id):
+        r = t.result or {}
+        if r.get("findings") or r.get("documents") or r.get("mentions") or r.get("hypotheses") or r.get("browse_tasks"):
+            return True
+        if t.kind in ("analyze_document", "verify", "witness_followup", "human_assist") and t.status == "done":
+            return True
+    return open_hypotheses(db, inv) > 0
+
+
 def update_status(db: Session, inv: Investigation) -> str:
     if inv.status not in ACTIVE:
         return inv.status
@@ -240,6 +251,14 @@ def update_status(db: Session, inv: Investigation) -> str:
         n_open = open_hypotheses(db, inv)
         inv.status = "to_verify" if (n_open or c.get("to_verify")) else "done"
         inv.finished_at = utcnow()
+        if inv.status == "done" and not _anything_found(db, inv):
+            # Ne jamais présenter comme « terminée » une enquête qui n'a rien pu consulter : on dit ce qui manque.
+            inv.status = "blocked"
+            inv.blocked_reason = ("Aucune source n'a donné de résultat exploitable. Pour aller plus loin : configurez Gemini "
+                                  "(gratuit) dans Paramètres pour la recherche web avec sources, et/ou démarrez le navigateur "
+                                  "autonome sur votre ordinateur, puis cliquez sur Reprendre.")
+            queue.emit(db, inv.id, "info", "Enquête arrêtée sans résultat : " + inv.blocked_reason, {})
+            return inv.status
         queue.emit(db, inv.id, "info", "Enquête terminée : " + (f"{n_open} hypothèse(s) à vérifier par vous." if inv.status == "to_verify"
                                                                  else "toutes les recherches planifiées ont été faites."), {})
     return inv.status

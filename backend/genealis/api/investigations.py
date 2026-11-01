@@ -424,7 +424,10 @@ def human_done(task_id: str, data: HumanDoneIn = Body(default_factory=HumanDoneI
 
     t = _get_task(db, task_id)
     note = (data.note or "").strip() or None
-    if t.kind == "human_assist":
+    if t.kind == "browse" and t.status == "running":
+        # Le worker local attend votre action dans la fenêtre du navigateur : on lui signale seulement la fin (il reprend).
+        t.result = {**(t.result or {}), "human_note": note, "human_done_at": utcnow().isoformat(timespec="seconds")}
+    elif t.kind == "human_assist":
         queue.complete(db, t, {"human_note": note, "human_done_at": utcnow().isoformat(timespec="seconds")}, status="done")
     else:
         t.status, t.lease_until, t.claimed_by, t.finished_at, t.last_error = "pending", None, None, None, None

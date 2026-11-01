@@ -33,6 +33,8 @@ const routes = ['/', '/demarrer', '/section/recherche', '/section/editer', '/sec
   if (tlist.length) routes.push(`/enquetes/${tlist[0].id}`)
   const invs = await (await page.request.get(`${base}/api/investigations`, { headers: process.env.GENEALIS_PASSWORD ? { 'X-Genealis-Token': process.env.GENEALIS_PASSWORD } : {} })).json().catch(() => [])
   routes.push(`/investigation/${Array.isArray(invs) && invs.length ? invs[0].id : 'inexistante'}`)
+  const medias = await (await page.request.get(`${base}/api/media`, { headers: process.env.GENEALIS_PASSWORD ? { 'X-Genealis-Token': process.env.GENEALIS_PASSWORD } : {} })).json().catch(() => [])
+  if (Array.isArray(medias) && medias.length) routes.push(`/documents/${medias[0].id}/lecture`)
   let bad = 0
   for (const r of routes) {
     current = r

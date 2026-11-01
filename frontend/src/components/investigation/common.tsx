@@ -106,7 +106,9 @@ export function WorkerHelp({ defaultOpen = false }: { defaultOpen?: boolean }) {
       {open && (
         <ol className="mt-2 list-decimal space-y-1 pl-5 leading-relaxed text-night-900/80">
           <li>Le navigateur autonome ne peut pas fonctionner sur l’hébergement en ligne : il tourne <strong>sur votre ordinateur</strong>, qui ouvre les sites d’archives à votre place.</li>
-          <li>Sur votre PC, installez GENEALIS avec l’option « navigateur » (Playwright et Browser Use, gratuits et open source), puis démarrez le navigateur autonome en suivant le guide d’installation fourni avec GENEALIS.</li>
+          <li>Sur votre PC Windows, lancez une seule fois <code className="rounded bg-mist-200/70 px-1">scripts\install-windows.ps1</code> (installe Playwright, Browser Use et Chromium, gratuits et open source).</li>
+          <li>Enregistrez votre clé Gemini sur le PC : <code className="rounded bg-mist-200/70 px-1">scripts\start-worker.ps1 -SetGeminiKey</code> (elle reste sur votre ordinateur, jamais envoyée par l’application en ligne).</li>
+          <li>Démarrez le navigateur autonome : <code className="rounded bg-mist-200/70 px-1">scripts\start-worker.ps1 -Server {typeof window !== 'undefined' ? window.location.origin : 'https://votre-app.vercel.app'}</code> (votre mot de passe d’accès vous sera demandé). Diagnostic : <code className="rounded bg-mist-200/70 px-1">-Check</code>. Guide complet : docs/INSTALLATION_WINDOWS.md.</li>
           <li>Laissez-le ouvert : il récupère les missions de navigation, puis renvoie ici les pages consultées, leurs captures et les documents trouvés.</li>
           <li>En attendant, l’enquête continue avec les recherches sur Internet et la lecture des documents que vous avez déjà.</li>
         </ol>

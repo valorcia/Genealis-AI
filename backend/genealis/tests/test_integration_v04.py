@@ -120,3 +120,30 @@ def test_quota_pendant_lecture_bloque_l_enquete(db, gemini, tmp_path):
     sent = len(gemini.calls)
     _run(db, inv)
     assert len(gemini.calls) == sent, "aucun nouvel appel pendant la suspension"
+
+
+def test_j_ai_termine_pendant_assistance_ne_coupe_pas_le_worker(client, db):
+    """« J'ai terminé » dans le Centre d'investigation pendant que le worker attend l'utilisateur : la navigation reprend."""
+    from genealis.models import Investigation
+
+    inv = Investigation(title="Assistance", status="running")
+    db.add(inv)
+    db.flush()
+    t, _ = queue.enqueue(db, inv.id, "browse", "Site avec vérification humaine", params={"start_url": "https://archives.example.fr"})
+    queue.claim(db, "pc-1", kinds=["browse"])
+    db.commit()
+    assert client.post(f"/api/investigation-tasks/{t.id}/human-done", json={"note": "CAPTCHA fait"}).status_code == 200
+    hb = client.post(f"/api/worker/tasks/{t.id}/heartbeat", json={"worker_id": "pc-1"}).json()
+    assert hb["cancel"] is False and hb["human_done_at"]
+
+
+def test_enquete_sans_aucun_resultat_n_est_pas_terminee(db, monkeypatch):
+    """Sans IA, sans navigateur et sans réponse des sources : l'enquête dit ce qui manque au lieu de s'afficher TERMINÉE."""
+    monkeypatch.setattr(strategy, "free_connectors", lambda db, q: [])
+    cfg.set_value(db, "browser_mode", "off")
+    p = _jean(db)
+    inv = director.start_investigation(db, p.id, max_generations=0)
+    db.commit()
+    _run(db, inv)
+    db.refresh(inv)
+    assert inv.status == "blocked" and "Gemini" in inv.blocked_reason
