@@ -8,6 +8,8 @@ export interface PersonSummary {
   sex: 'M' | 'F' | null; confidence: Confidence; is_root: boolean; is_living: boolean | null
   birth_year: number | null; death_year: number | null; birth_display: string | null; death_display: string | null
   birth_place: string | null; death_place: string | null; occupation: string | null; portrait_media_id: string | null
+  /** Âge au décès, ou âge actuel si la personne est vivante (null si non calculable sans inventer). */
+  age_years?: number | null; age_display?: string | null; age_detail?: string | null; age_context?: string | null
 }
 export interface CitationOut { id: string; source_id: string; target_type: string; target_id: string; excerpt: string | null; image_region: Record<string, number> | null; confidence: Confidence; note: string | null; source_title: string | null; source_reliability: string | null }
 export interface EventOut { id: string; person_id: string | null; family_id: string | null; event_type: string; date_original: string | null; date_kind: string; date_start: string | null; date_end: string | null; calendar: string; sort_year: number | null; date_display: string; place_id: string | null; place_name: string | null; place_original: string | null; description: string | null; value_original: string | null; attributes: Record<string, unknown>; confidence: Confidence; citations: CitationOut[] }
@@ -45,6 +47,25 @@ export interface Narrative { person_id: string; name: string; paragraphs: Narrat
 export interface Settings { autonomy_mode: number; ai_provider: string; ollama_url: string; ollama_model: string; ollama_vision_model: string; anthropic_model: string; allow_external_ai: boolean; external_ai_scope: string; ocr_engine: string; tesseract_cmd: string; backup_enabled: boolean; backup_interval_hours: number; backup_keep: number; living_persons_privacy: boolean; onboarding_done: boolean; research_pause: boolean; anthropic_api_key_set: boolean; gemini_api_key_set?: boolean; gemini_model?: string; [k: string]: unknown }
 export interface ChatOut { role: string; content: string; meta: Record<string, unknown>; ts: string }
 export interface Priority { person_id: string; name: string; missing: string[]; availability: number; country: string; birth_year: number | null; estimated_minutes: number; score: number; already_tried: string[] }
+
+export type RelativeKind = 'father' | 'mother' | 'son' | 'daughter' | 'child' | 'brother' | 'sister' | 'sibling' | 'spouse' | 'husband' | 'wife'
+  | 'paternal_grandfather' | 'paternal_grandmother' | 'maternal_grandfather' | 'maternal_grandmother'
+export interface RelativeIn { relation: RelativeKind; person?: PersonIn; existing_id?: string; other_parent_id?: string; relation_type?: string; sibling_shared?: 'both' | 'father' | 'mother'; marriage_date?: string; marriage_place?: string; research?: boolean }
+export interface Kinship { relation: string; found: boolean; by_marriage?: boolean; generations_a?: number; generations_b?: number; civil_degree?: number; half?: boolean; common_ancestors: PersonSummary[]; path: PersonSummary[] }
+export interface Stats {
+  persons: number; sexes: Record<string, number>; living: number
+  age_at_death: { histogram: { from: number; to: number; count: number }[]; average: number | null; average_m: number | null; average_f: number | null; max: number | null; count: number }
+  lifespan_by_century: { century: number; average: number | null; count: number }[]
+  births_by_decade: { decade: number; count: number }[]; deaths_by_decade: { decade: number; count: number }[]
+  surname_distribution: { surname: string; first_year: number; last_year: number; count: number; decades: { decade: number; count: number }[] }[]
+  top_given_names_m: [string, number][]; top_given_names_f: [string, number][]; top_birth_places: [string, number][]; top_occupations: [string, number][]; countries: [string, number][]
+  marriage_age: { average: number | null; count: number }; children_per_family: { average: number | null; count: number; max: number | null }; with_sources: number
+}
+export interface DatabaseState { counts: Record<string, number>; missing_birth: PersonSummary[]; missing_parents: PersonSummary[]; without_sources: PersonSummary[]; probably_deceased_without_date: PersonSummary[]; places_without_coordinates: { id: string; name: string }[] }
+export interface EventRow { id: string; event_type: string; date_display: string; date_start: string | null; date_kind: string; sort_year: number | null; place: string | null; lat: number | null; lon: number | null; description: string | null; confidence: Confidence; persons: { id: string; name: string; sex: string | null }[]; family_id: string | null }
+export interface Discovery { kind: 'hypothesis' | 'source' | 'archive' | 'question'; id: string; title: string; status: string | null; score?: number | null; url: string | null; person_id: string | null; person_name: string | null; created_at: string; by: string | null }
+export interface Advice { source: string; markdown: string; rules_markdown?: string; links: { id: string; name: string; url: string | null; mode: string }[]; facts: Record<string, unknown>; ai_error?: string }
+export interface QuickStartIn { people: PersonIn[]; couple?: boolean; marriage_date?: string; marriage_place?: string; children?: PersonIn[]; research?: boolean }
 
 export class ApiError extends Error { status: number; constructor(status: number, message: string) { super(message); this.status = status } }
 
@@ -144,6 +165,27 @@ export const api = {
   technicalLog: () => req<{ path: string; lines: string[] }>('/api/logs/technical'),
   onboarding: (data: Record<string, unknown>) => req<{ root: PersonDetail; parents: string[]; grandparents: string[]; tasks: string[] }>('/api/onboarding', { method: 'POST', body: JSON.stringify(data) }),
   streamUrl: () => `${API_BASE}/api/research/stream`,
+  // Proches, parenté, sous-arbres
+  addRelative: (personId: string, data: RelativeIn) => req<{ person: PersonDetail; relations: string[]; placeholders: string[]; message: string; task_ids: string[] }>(`/api/persons/${personId}/relatives`, { method: 'POST', body: JSON.stringify(data) }),
+  kinship: (aId: string, bId: string) => req<Kinship>(`/api/persons/${aId}/kinship/${bId}`),
+  previewSubtreeDelete: (id: string, scope: 'descendants' | 'ancestors', includeSelf = false) => req<{ would_delete: number; names: string[] }>(`/api/persons/${id}/subtree${q({ scope, include_self: includeSelf })}`, { method: 'DELETE' }),
+  deleteSubtree: (id: string, scope: 'descendants' | 'ancestors', includeSelf = false) => req<{ deleted: number }>(`/api/persons/${id}/subtree${q({ scope, include_self: includeSelf, confirm: 'SUPPRIMER' })}`, { method: 'DELETE' }),
+  addFamilyEvent: (familyId: string, data: EventIn) => req<EventOut>(`/api/persons/families/${familyId}/events`, { method: 'POST', body: JSON.stringify(data) }),
+  updateFamily: (familyId: string, data: { union_type?: string; notes?: string | null }) => req<FamilyOut>(`/api/persons/families/${familyId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  // Statistiques, listes, rapports
+  stats: () => req<Stats>('/api/stats'),
+  databaseState: () => req<DatabaseState>('/api/reports/state'),
+  events: (opts: { event_type?: string; year_from?: number; year_to?: number; place?: string } = {}) => req<EventRow[]>(`/api/events${q(opts)}`),
+  // Démarrage rapide et centre de recherche IA
+  quickstart: (data: QuickStartIn) => req<{ persons: string[]; children: string[]; family_id: string | null; tasks: string[]; root_id: string }>('/api/quickstart', { method: 'POST', body: JSON.stringify(data) }),
+  discoveries: (limit = 60) => req<Discovery[]>(`/api/research/discoveries${q({ limit })}`),
+  advice: (personId: string) => req<Advice>(`/api/research/advice/${personId}`, { method: 'POST' }),
+  // Archivage des documents trouvés en ligne
+  archiveUrl: (url: string, opts: { person_id?: string; source_id?: string; title?: string } = {}) => req<MediaOut[]>('/api/media/archive-url', { method: 'POST', body: JSON.stringify({ url, ...opts }) }),
+  archiveSource: (sourceId: string) => req<MediaOut[]>(`/api/sources/${sourceId}/archive`, { method: 'POST' }),
+  // Publication
+  gedcomSubtreeUrl: (rootId: string, scope: 'ancestors' | 'descendants' | 'both', hideLiving = true) => `${API_BASE}/api/export/gedcom${q({ root_id: rootId, scope, hide_living: hideLiving })}`,
+  siteExportUrl: () => `${API_BASE}/api/export/site.zip`,
   // Fichier des décès INSEE : index local gratuit, hors ligne
   inseeStatus: () => req<{ files: { name: string; lines: number; imported_at: string }[]; records: number; db_path: string }>('/api/research/insee/status'),
   inseeResources: () => req<{ title: string; url: string; year: number; month: number | null; size: number | null; format: string }[]>('/api/research/insee/resources'),
@@ -156,7 +198,7 @@ export const api = {
 }
 
 export const CONF_LABEL: Record<Confidence, string> = { green: 'Établi', orange: 'À vérifier', red: 'Contradiction', grey: 'Inconnu' }
-export const EVENT_LABEL: Record<string, string> = { birth: 'Naissance', baptism: 'Baptême', marriage: 'Mariage', marriage_banns: 'Publication de bans', marriage_contract: 'Contrat de mariage', divorce: 'Divorce', death: 'Décès', burial: 'Inhumation', residence: 'Résidence', census: 'Recensement', occupation: 'Profession', military: 'Service militaire', immigration: 'Immigration', emigration: 'Émigration', naturalization: 'Naturalisation', will: 'Testament', probate: 'Succession', other: 'Autre' }
+export const EVENT_LABEL: Record<string, string> = { birth: 'Naissance', baptism: 'Baptême', marriage: 'Mariage', civil_marriage: 'Mariage civil', religious_marriage: 'Mariage religieux', marriage_banns: 'Publication des bans', marriage_contract: 'Contrat de mariage', marriage_license: 'Licence de mariage', engagement: 'Fiançailles', pacs: 'Concubinage / PACS', separation: 'Séparation', cremation: 'Crémation', education: 'Études', graduation: 'Diplôme', retirement: 'Retraite', confirmation: 'Confirmation', first_communion: 'Première communion', divorce: 'Divorce', death: 'Décès', burial: 'Inhumation', residence: 'Résidence', census: 'Recensement', occupation: 'Profession', military: 'Service militaire', immigration: 'Immigration', emigration: 'Émigration', naturalization: 'Naturalisation', will: 'Testament', probate: 'Succession', other: 'Autre' }
 export const RELATION_LABEL: Record<string, string> = { biological: 'biologique', adoptive: 'adoptive', legal: 'légale', step: 'beau-parent', foster: 'nourricière', uncertain: 'incertaine' }
 export const TASK_STATUS_LABEL: Record<string, string> = { queued: 'En file', running: 'En cours', waiting_user: 'Attend votre accord', done: 'Terminée', failed: 'Échec', paused: 'En pause', cancelled: 'Annulée' }
 
