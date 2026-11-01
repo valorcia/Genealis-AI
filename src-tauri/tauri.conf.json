@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GENEALIS AI",
+  "version": "0.1.0",
+  "identifier": "fr.genealis.ai",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm --prefix ../frontend run dev",
+    "beforeBuildCommand": "npm --prefix ../frontend run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "GENEALIS AI — Généalogiste numérique",
+        "width": 1480,
+        "height": 940,
+        "minWidth": 1024,
+        "minHeight": 700,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "url": "index.html"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "externalBin": ["binaries/genealis-backend"],
+    "windows": {
+      "nsis": {
+        "languages": ["French", "English"],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser"
+      },
+      "webviewInstallMode": { "type": "downloadBootstrapper" }
+    },
+    "createUpdaterArtifacts": false,
+    "category": "Utility",
+    "shortDescription": "Généalogie intelligente et recherche historique autonome",
+    "longDescription": "GENEALIS AI construit votre arbre généalogique à partir des archives, sans jamais inventer une personne, une filiation ou une date."
+  }
+}

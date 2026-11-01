@@ -1,0 +1,11 @@
+.venv
+node_modules
+frontend/node_modules
+src-tauri
+backend/dist
+backend/build
+backend/genealis/tests
+backend/genealis-backend.spec
+scripts
+docs
+*.db

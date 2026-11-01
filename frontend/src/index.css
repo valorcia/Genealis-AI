@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-night-950: #070e1c;
+  --color-night-900: #0f1e3a;
+  --color-night-800: #16294d;
+  --color-night-700: #203762;
+  --color-night-600: #2d4a7c;
+  --color-ivory-50: #fdfcf8;
+  --color-ivory-100: #f7f4ea;
+  --color-ivory-200: #ece7d6;
+  --color-ivory-300: #ddd5bd;
+  --color-gold-400: #d8b64a;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a7851c;
+  --color-sage-300: #b6c8b8;
+  --color-sage-400: #93ad97;
+  --color-sage-500: #7a9a7e;
+  --color-sage-600: #5f7f64;
+  --color-mist-100: #f3f4f6;
+  --color-mist-200: #e4e6ea;
+  --color-mist-300: #cfd3da;
+  --color-mist-400: #9aa1ad;
+  --color-mist-500: #6b7280;
+  --color-conf-green: #5f9a6a;
+  --color-conf-orange: #d9932c;
+  --color-conf-red: #b4473c;
+  --color-conf-grey: #9aa1ad;
+  --font-display: "Cormorant Garamond", "Georgia", "Times New Roman", serif;
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+  --app-bg: var(--color-ivory-100);
+  --panel-bg: var(--color-ivory-50);
+  --text-main: var(--color-night-900);
+  --text-muted: var(--color-mist-500);
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--app-bg); color: var(--text-main); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+.font-display { font-family: var(--font-display); }
+
+@utility panel { @apply bg-ivory-50 border border-ivory-300/70 rounded-2xl shadow-[0_1px_2px_rgba(15,30,58,0.06),0_8px_24px_-12px_rgba(15,30,58,0.25)]; }
+@utility btn { @apply inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer; }
+@utility btn-primary { @apply btn bg-night-900 text-ivory-50 hover:bg-night-700; }
+@utility btn-gold { @apply btn bg-gold-500 text-night-950 hover:bg-gold-400; }
+@utility btn-ghost { @apply btn bg-transparent text-night-900 hover:bg-ivory-200 border border-ivory-300; }
+@utility btn-sage { @apply btn bg-sage-500 text-ivory-50 hover:bg-sage-600; }
+@utility btn-danger { @apply btn bg-conf-red text-ivory-50 hover:opacity-90; }
+@utility input { @apply w-full rounded-xl border border-ivory-300 bg-white px-3 py-2 text-sm text-night-900 outline-none focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20; }
+@utility label { @apply block text-xs font-semibold uppercase tracking-wide text-mist-500 mb-1; }
+@utility chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+.conf-green { background: color-mix(in srgb, var(--color-conf-green) 15%, white); color: #2f6b3b; }
+.conf-orange { background: color-mix(in srgb, var(--color-conf-orange) 18%, white); color: #8a5a10; }
+.conf-red { background: color-mix(in srgb, var(--color-conf-red) 15%, white); color: #7d2b22; }
+.conf-grey { background: var(--color-mist-200); color: var(--color-mist-500); }
+.dot-green { background: var(--color-conf-green); } .dot-orange { background: var(--color-conf-orange); }
+.dot-red { background: var(--color-conf-red); } .dot-grey { background: var(--color-conf-grey); }
+
+.react-flow__attribution { display: none; }
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--color-mist-300); border-radius: 8px; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fade-up .35s ease-out both; }
+.prose-sm p { margin: 0.4em 0; }
+.markdown strong { font-weight: 600; } .markdown ul { list-style: disc; padding-left: 1.2em; margin: .3em 0; } .markdown li { margin: .15em 0; }
+.markdown em { color: var(--text-muted); }

@@ -1,0 +1,63 @@
+name: Construire l'installateur GENEALIS AI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Tests backend
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  windows:
+    name: Installateur Windows (NSIS + MSI) et portable
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Dépendances frontend et build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Moteur Python (PyInstaller)
+        working-directory: backend
+        run: |
+          pip install -e ".[dev]"
+          python -m PyInstaller --noconfirm --clean genealis-backend.spec
+          New-Item -ItemType Directory -Force ..\src-tauri\binaries | Out-Null
+          Copy-Item dist\genealis-backend.exe ..\src-tauri\binaries\genealis-backend-x86_64-pc-windows-msvc.exe
+      - name: Portable (zip)
+        working-directory: backend
+        run: |
+          New-Item -ItemType Directory -Force portable | Out-Null
+          Copy-Item dist\genealis-backend.exe portable\GenealisAI-portable.exe
+          Set-Content portable\LISEZMOI.txt "Double-cliquez sur GenealisAI-portable.exe puis ouvrez http://127.0.0.1:8765 (le navigateur s'ouvre automatiquement). Vos données sont dans %APPDATA%\GenealisAI."
+          Compress-Archive -Path portable\* -DestinationPath GenealisAI-portable-windows.zip -Force
+      - name: Installateur Tauri
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: src-tauri
+          tauriScript: npx --yes @tauri-apps/cli@^2
+          args: --target x86_64-pc-windows-msvc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: genealis-ai-windows
+          path: |
+            src-tauri/target/**/bundle/nsis/*.exe
+            src-tauri/target/**/bundle/msi/*.msi
+            backend/GenealisAI-portable-windows.zip
+          if-no-files-found: error

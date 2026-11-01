@@ -1,0 +1,38 @@
+[project]
+name = "genealis"
+version = "0.1.0"
+description = "GENEALIS AI - moteur local de généalogie intelligente"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy>=2.0",
+  "alembic>=1.13",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "httpx>=0.27",
+  "rapidfuzz>=3.9",
+  "unidecode>=1.3",
+  "cryptography>=42",
+  "apscheduler>=3.10,<4",
+  "python-multipart>=0.0.9",
+  "pillow>=10",
+  "pymupdf>=1.24",
+  "pytesseract>=0.3.10",
+  "reportlab>=4",
+  "anthropic>=0.30",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "pyinstaller>=6"]
+
+[tool.pytest.ini_options]
+testpaths = ["genealis/tests"]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["genealis*"]
