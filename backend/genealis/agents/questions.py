@@ -38,7 +38,10 @@ def answer(db: Session, q: Question, answer_type: str, text: str | None, payload
     q.answer = text
     q.answered_at = utcnow()
     db.flush()
-    log(db, f"Réponse à « {q.title} » : {answer_type}" + (f" — {text}" if text else ""), category="question",
+    label = {"yes": "oui", "no": "non", "unknown": "je ne sais pas", "info": "information ajoutée", "document": "document ajouté",
+             "search_other": "rechercher autrement", "dismiss": "ignorée"}.get(answer_type, answer_type)
+    shown = text if text and text.strip().lower() != label else None
+    log(db, f"Réponse à « {q.title} » : {label}" + (f" — {shown}" if shown else ""), category="decision",
         task_id=q.task_id, person_id=q.person_id, outcome={"answer_type": answer_type, "payload": payload or {}})
     return q
 

@@ -2,71 +2,177 @@
 @import "leaflet/dist/leaflet.css";
 @import "@xyflow/react/dist/style.css";
 
+/*
+ * Système visuel GENEALIS AI — style iOS / MacFamilyTree (clair uniquement).
+ * Les noms historiques des jetons (night, ivory, gold, sage, mist, conf) sont conservés
+ * pour les composants existants ; seules leurs valeurs ont changé :
+ *   night  → encres bleu nuit (texte principal, surfaces sombres ponctuelles)
+ *   ivory  → blancs et gris très clairs (fonds, bordures)
+ *   gold   → famille violette « Recherche IA » (accent principal de l'IA)
+ *   sage   → vert iOS
+ */
 @theme {
-  --color-night-950: #070e1c;
-  --color-night-900: #0f1e3a;
-  --color-night-800: #16294d;
-  --color-night-700: #203762;
-  --color-night-600: #2d4a7c;
-  --color-ivory-50: #fdfcf8;
-  --color-ivory-100: #f7f4ea;
-  --color-ivory-200: #ece7d6;
-  --color-ivory-300: #ddd5bd;
-  --color-gold-400: #d8b64a;
-  --color-gold-500: #c9a227;
-  --color-gold-600: #a7851c;
-  --color-sage-300: #b6c8b8;
-  --color-sage-400: #93ad97;
-  --color-sage-500: #7a9a7e;
-  --color-sage-600: #5f7f64;
-  --color-mist-100: #f3f4f6;
-  --color-mist-200: #e4e6ea;
-  --color-mist-300: #cfd3da;
-  --color-mist-400: #9aa1ad;
-  --color-mist-500: #6b7280;
-  --color-conf-green: #5f9a6a;
-  --color-conf-orange: #d9932c;
-  --color-conf-red: #b4473c;
-  --color-conf-grey: #9aa1ad;
-  --font-display: "Cormorant Garamond", "Georgia", "Times New Roman", serif;
-  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --color-night-950: #121826;
+  --color-night-900: #1c2333;
+  --color-night-800: #2a3346;
+  --color-night-700: #3a4560;
+  --color-night-600: #52607d;
+  --color-ivory-50: #ffffff;
+  --color-ivory-100: #f5f7fb;
+  --color-ivory-200: #e9edf4;
+  --color-ivory-300: #dce2eb;
+  --color-gold-400: #9d8af2;
+  --color-gold-500: #7458e6;
+  --color-gold-600: #5b3fd6;
+  --color-sage-300: #a9dcb8;
+  --color-sage-400: #5fbb7d;
+  --color-sage-500: #2e9a52;
+  --color-sage-600: #237a40;
+  --color-mist-100: #f2f4f8;
+  --color-mist-200: #e3e7ee;
+  --color-mist-300: #cbd1db;
+  --color-mist-400: #98a0ae;
+  --color-mist-500: #697282;
+  --color-conf-green: #2e9a52;
+  --color-conf-orange: #e0861b;
+  --color-conf-red: #d6453b;
+  --color-conf-grey: #98a0ae;
+  --color-ios-blue: #2f6fd1;
+  --color-ios-violet: #5b3fd6;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 :root {
   color-scheme: light;
-  --app-bg: var(--color-ivory-100);
-  --panel-bg: var(--color-ivory-50);
+  --app-bg: #eef1f7;
+  --panel-bg: #ffffff;
   --text-main: var(--color-night-900);
   --text-muted: var(--color-mist-500);
+  --accent: var(--color-ios-blue);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 html, body, #root { height: 100%; margin: 0; }
-body { background: var(--app-bg); color: var(--text-main); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
+body {
+  background: var(--app-bg);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: color-mix(in srgb, var(--color-ios-blue) 22%, transparent); }
 
-.font-display { font-family: var(--font-display); }
+/* Titres : police système en demi-gras (plus de serif). La famille vient du jeton --font-display. */
+@layer components {
+  .font-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.015em; }
+}
 
-@utility panel { @apply bg-ivory-50 border border-ivory-300/70 rounded-2xl shadow-[0_1px_2px_rgba(15,30,58,0.06),0_8px_24px_-12px_rgba(15,30,58,0.25)]; }
-@utility btn { @apply inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer; }
-@utility btn-primary { @apply btn bg-night-900 text-ivory-50 hover:bg-night-700; }
-@utility btn-gold { @apply btn bg-gold-500 text-night-950 hover:bg-gold-400; }
-@utility btn-ghost { @apply btn bg-transparent text-night-900 hover:bg-ivory-200 border border-ivory-300; }
-@utility btn-sage { @apply btn bg-sage-500 text-ivory-50 hover:bg-sage-600; }
-@utility btn-danger { @apply btn bg-conf-red text-ivory-50 hover:opacity-90; }
-@utility input { @apply w-full rounded-xl border border-ivory-300 bg-white px-3 py-2 text-sm text-night-900 outline-none focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20; }
-@utility label { @apply block text-xs font-semibold uppercase tracking-wide text-mist-500 mb-1; }
+/* ---------- Surfaces ---------- */
+@utility panel {
+  background: #ffffff;
+  border: 1px solid rgb(0 0 0 / 0.05);
+  border-radius: 24px;
+  box-shadow: 0 1px 2px rgb(28 35 51 / 0.05), 0 10px 30px -16px rgb(28 35 51 / 0.22);
+}
+@utility glass {
+  background: rgb(255 255 255 / 0.75);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 12px 36px -14px rgb(28 40 70 / 0.32);
+}
+@utility tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 26px;
+  border: 1px solid rgb(255 255 255 / 0.9);
+  box-shadow: 0 1px 2px rgb(28 35 51 / 0.06), 0 10px 26px -14px rgb(28 40 70 / 0.3);
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 22px 44px -18px rgb(28 40 70 / 0.38);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    pointer-events: none;
+  }
+  @media (hover: hover) {
+    &:hover { transform: translateY(-3px); }
+    &:hover::after { opacity: 1; }
+  }
+  &:active { transform: scale(0.96); }
+  &:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-ios-blue) 45%, transparent); outline-offset: 3px; }
+}
+
+/* ---------- Boutons ---------- */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium select-none cursor-pointer transition-[transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ios-blue/30;
+}
+@utility btn-primary { @apply btn bg-ios-blue text-white shadow-[0_6px_16px_-8px_rgba(47,111,209,0.8)] hover:bg-[#2a63bd]; }
+@utility btn-gold { @apply btn bg-ios-violet text-white shadow-[0_6px_16px_-8px_rgba(91,63,214,0.85)] hover:bg-[#5036c4]; }
+@utility btn-ghost { @apply btn bg-white text-night-900 border border-black/[0.08] shadow-[0_1px_2px_rgba(28,35,51,0.05)] hover:bg-ivory-100; }
+@utility btn-sage { @apply btn bg-sage-500 text-white shadow-[0_6px_16px_-8px_rgba(46,154,82,0.8)] hover:bg-sage-600; }
+@utility btn-danger { @apply btn bg-conf-red text-white hover:bg-[#c23a31]; }
+
+/* ---------- Formulaires ---------- */
+@utility input {
+  @apply w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2 text-base sm:text-sm text-night-900 shadow-[0_1px_2px_rgba(28,35,51,0.04)] outline-none placeholder:text-mist-400 focus:border-ios-blue focus:ring-3 focus:ring-ios-blue/20;
+}
+@utility label { @apply mb-1 block text-[11px] font-semibold uppercase tracking-wider text-mist-500; }
 @utility chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
-.conf-green { background: color-mix(in srgb, var(--color-conf-green) 15%, white); color: #2f6b3b; }
-.conf-orange { background: color-mix(in srgb, var(--color-conf-orange) 18%, white); color: #8a5a10; }
-.conf-red { background: color-mix(in srgb, var(--color-conf-red) 15%, white); color: #7d2b22; }
+
+/* ---------- Confiance ---------- */
+.conf-green { background: color-mix(in srgb, var(--color-conf-green) 14%, white); color: #1f6e3a; }
+.conf-orange { background: color-mix(in srgb, var(--color-conf-orange) 16%, white); color: #8f520b; }
+.conf-red { background: color-mix(in srgb, var(--color-conf-red) 13%, white); color: #9c2a22; }
 .conf-grey { background: var(--color-mist-200); color: var(--color-mist-500); }
 .dot-green { background: var(--color-conf-green); } .dot-orange { background: var(--color-conf-orange); }
 .dot-red { background: var(--color-conf-red); } .dot-grey { background: var(--color-conf-grey); }
 
+/* ---------- Zones sûres (encoche, barre d'accueil iPhone) ---------- */
+@utility safe-top { padding-top: var(--safe-top); }
+@utility safe-bottom { padding-bottom: var(--safe-bottom); }
+@utility safe-x { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* ---------- Divers ---------- */
 .react-flow__attribution { display: none; }
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--color-mist-300) transparent; }
 .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--color-mist-300); border-radius: 8px; }
-@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.fade-up { animation: fade-up .35s ease-out both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fade-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* Entrée des tuiles : « backwards » pour ne pas bloquer l'effet de survol (transform) une fois l'animation finie. */
+.tile-in { animation: fade-up 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+@keyframes sheet-up { from { opacity: 0; transform: translateY(24px) scale(0.98); } to { opacity: 1; transform: none; } }
+.sheet-up { animation: sheet-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fade-in { animation: fade-in 0.2s ease-out both; }
+@keyframes ai-glow { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+.ai-glow { animation: ai-glow 2.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .fade-up, .tile-in, .sheet-up, .fade-in, .ai-glow { animation: none; }
+}
 .prose-sm p { margin: 0.4em 0; }
 .markdown strong { font-weight: 600; } .markdown ul { list-style: disc; padding-left: 1.2em; margin: .3em 0; } .markdown li { margin: .15em 0; }
 .markdown em { color: var(--text-muted); }

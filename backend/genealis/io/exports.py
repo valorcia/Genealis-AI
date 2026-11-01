@@ -98,13 +98,13 @@ def family_report_pdf(db: Session, root_id: str, max_generations: int = 6) -> by
                        "Chaque affirmation est accompagnée de son niveau de confiance et de ses sources ; les hypothèses ne sont pas des faits.", ss["Body"]),
              Spacer(1, 10), Paragraph("Tableau d'ascendance (numérotation Sosa)", ss["H2g"])]
     rows = [["Sosa", "Nom", "Naissance", "Décès", "Confiance"]]
-    for n in sorted(g["nodes"], key=lambda n: min(n["sosa"])):
-        rows.append([", ".join(str(s) for s in n["sosa"]), n["display_name"], f"{n.get('birth_display') or '?'} {n.get('birth_place') or ''}".strip(),
+    for n in sorted(g["nodes"], key=lambda n: min(n["sosa"] or [10**9])):
+        rows.append([", ".join(str(s) for s in n["sosa"]) or "—", n["display_name"], f"{n.get('birth_display') or '?'} {n.get('birth_place') or ''}".strip(),
                      f"{n.get('death_display') or '?'} {n.get('death_place') or ''}".strip(), CONF_LABEL.get(n["confidence"], n["confidence"])])
     t = Table(rows, colWidths=[1.5 * cm, 5 * cm, 4.5 * cm, 4.5 * cm, 2 * cm], repeatRows=1)
     style = [("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f1e3a")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
              ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey)]
-    for i, n in enumerate(sorted(g["nodes"], key=lambda n: min(n["sosa"])), start=1):
+    for i, n in enumerate(sorted(g["nodes"], key=lambda n: min(n["sosa"] or [10**9])), start=1):
         style.append(("TEXTCOLOR", (4, i), (4, i), CONF_COLOR.get(n["confidence"], colors.black)))
     t.setStyle(TableStyle(style))
     story += [t, PageBreak()]

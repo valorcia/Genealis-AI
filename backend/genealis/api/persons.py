@@ -21,7 +21,7 @@ def _recalc(db: Session) -> None:
 
 
 @router.get("", response_model=list[PersonSummary])
-def list_persons(db: Session = Depends(get_session), q: str | None = None, limit: int = Query(200, le=2000), offset: int = 0):
+def list_persons(db: Session = Depends(get_session), q: str | None = None, limit: int = Query(200, le=20000), offset: int = 0):
     if q:
         return [svc.person_summary(db, p) for p in svc.search_persons(db, q, limit=limit)]
     rows = db.execute(select(Person).order_by(Person.surname, Person.given_names).limit(limit).offset(offset)).scalars().all()
@@ -35,6 +35,18 @@ def create_person(data: PersonIn, db: Session = Depends(get_session)):
     log(db, f"Fiche créée : {p.display_name()}", category="decision", person_id=p.id)
     db.commit()
     return svc.person_detail(db, p)
+
+
+@router.post("/batch", response_model=list[PersonDetail])
+def persons_batch(body: dict, db: Session = Depends(get_session)):
+    """Fiches détaillées de plusieurs personnes en un seul appel (arbres et graphiques)."""
+    ids = [i for i in (body.get("ids") or []) if isinstance(i, str)][:400]
+    out = []
+    for pid in dict.fromkeys(ids):
+        p = db.get(Person, pid)
+        if p:
+            out.append(svc.person_detail(db, p))
+    return out
 
 
 @router.get("/{person_id}/kinship/{other_id}")

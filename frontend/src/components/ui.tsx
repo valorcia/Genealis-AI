@@ -13,7 +13,7 @@ export function Panel({ title, children, actions, className = '' }: { title?: Re
     <section className={`panel p-5 fade-up ${className}`}>
       {(title || actions) && (
         <header className="mb-3 flex items-center justify-between gap-3">
-          {title && <h2 className="font-display text-xl text-night-900">{title}</h2>}
+          {title && <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-night-900 sm:text-lg">{title}</h2>}
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
       )}
@@ -22,18 +22,18 @@ export function Panel({ title, children, actions, className = '' }: { title?: Re
   )
 }
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="rounded-xl border border-dashed border-ivory-300 p-6 text-center text-sm text-mist-500">{children}</div>
+  return <div className="rounded-2xl border border-dashed border-black/10 bg-white/50 p-6 text-center text-sm text-mist-500">{children}</div>
 }
 export function PersonLink({ p, className = '' }: { p: PersonSummary; className?: string }) {
   return (
-    <Link to={`/personnes/${p.id}`} className={`inline-flex items-center gap-1.5 text-night-900 hover:text-gold-600 ${className}`}>
+    <Link to={`/personnes/${p.id}`} className={`inline-flex items-center gap-1.5 text-night-900 transition-opacity hover:text-ios-blue ${className}`}>
       <ConfidenceDot level={p.confidence} />
       <span className="font-medium">{p.display_name}</span>
       {(p.birth_year || p.death_year) && <span className="text-xs text-mist-500">({p.birth_year ?? '?'}–{p.death_year ?? (p.is_living ? '' : '?')})</span>}
     </Link>
   )
 }
-export function Spinner() { return <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-mist-300 border-t-gold-500" /> }
+export function Spinner() { return <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-mist-200 border-t-ios-blue" role="status" aria-label="Chargement" /> }
 export function Markdown({ text }: { text: string }) {
   const html = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')

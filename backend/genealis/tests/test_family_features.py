@@ -134,3 +134,16 @@ def test_archivage_web(db):
         archive_url(db, "https://interdit.example/page", transport=_transport())
     with pytest.raises(ArchiveRefused):
         archive_url(db, "https://www.geneanet.org/fonds/individus", transport=_transport())
+
+
+def test_sosa_ignore_les_beaux_parents(db):
+    from genealis.services.narrative import person_narrative
+    from genealis.services.tree import ancestors_graph
+
+    f = build_fictional_family(db)
+    g = ancestors_graph(db, f["me"].id)
+    sosa = {n["id"]: n["sosa"] for n in g["nodes"]}
+    assert sosa[f["father"].id] == [2] and sosa[f["mother"].id] == [3] and sosa[f["step"].id] == []
+    assert sosa[f["mgf"].id] == [6]  # père de la mère
+    txt = person_narrative(db, f["me"])["paragraphs"][1]["text"]
+    assert "Pierre DURANT et de Anna ROSSI." in txt and "beau-parent" in txt

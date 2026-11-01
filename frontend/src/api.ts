@@ -98,6 +98,7 @@ export const api = {
   dashboard: () => req<Dashboard>('/api/dashboard'),
   persons: (query?: string, limit = 500) => req<PersonSummary[]>(`/api/persons${q({ q: query, limit })}`),
   person: (id: string) => req<PersonDetail>(`/api/persons/${id}`),
+  personsBatch: (ids: string[]) => req<PersonDetail[]>('/api/persons/batch', { method: 'POST', body: JSON.stringify({ ids }) }),
   createPerson: (data: PersonIn) => req<PersonDetail>('/api/persons', { method: 'POST', body: JSON.stringify(data) }),
   updatePerson: (id: string, data: PersonIn) => req<PersonDetail>(`/api/persons/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePerson: (id: string) => req<void>(`/api/persons/${id}`, { method: 'DELETE' }),

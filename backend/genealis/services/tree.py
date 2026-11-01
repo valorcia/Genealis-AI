@@ -23,24 +23,38 @@ def ancestors_graph(db: Session, root_id: str, max_generations: int = 12) -> dic
         person, sosa, gen = frontier.pop(0)
         if person.id in nodes and nodes[person.id]["generation"] <= gen:
             # implexe : même personne atteinte par deux chemins
-            nodes[person.id]["sosa"].append(sosa)
+            if sosa:
+                nodes[person.id]["sosa"].append(sosa)
             continue
-        nodes[person.id] = {**person_summary(db, person).model_dump(), "generation": gen, "sosa": [sosa]}
+        nodes[person.id] = {**person_summary(db, person).model_dump(), "generation": gen, "sosa": [sosa] if sosa else []}
         max_gen = max(max_gen, gen)
         if gen >= max_generations:
             continue
         pars = parents_of(db, person.id)
-        # Père = sosa*2, mère = sosa*2+1 (si sexe inconnu, ordre d'insertion)
-        ordered = sorted(pars, key=lambda t: {"M": 0, "F": 1}.get(t[0].sex or "", 2))
-        for i, (parent, rel) in enumerate(ordered[:2]):
-            child_sosa = sosa * 2 + (0 if (parent.sex == "M" or (parent.sex is None and i == 0)) else 1)
+        # Numérotation Sosa-Stradonitz : seuls les parents de filiation (biologique, adoptive, légale, incertaine)
+        # occupent les cases père = 2n et mère = 2n+1 ; les beaux-parents et parents nourriciers sont montrés sans numéro.
+        lineal = [(p, r) for p, r in pars if r.relation_type in ("biological", "uncertain", "adoptive", "legal")]
+        lineal.sort(key=lambda t: ({"biological": 0, "uncertain": 1, "legal": 2, "adoptive": 3}.get(t[1].relation_type, 4),
+                                   {"M": 0, "F": 1}.get(t[0].sex or "", 2)))
+        slots: dict[int, tuple] = {}
+        for parent, rel in lineal:
+            want = 0 if parent.sex == "M" else 1 if parent.sex == "F" else None
+            if want is None:
+                want = 0 if 0 not in slots else 1
+            if want in slots:
+                continue  # case déjà occupée (deuxième père/mère : contradiction signalée ailleurs)
+            slots[want] = (parent, rel)
+        numbered = {id(v[0]) for v in slots.values()}
+        for offset, (parent, rel) in sorted(slots.items()):
             edges.append({"id": rel.id, "source": parent.id, "target": person.id, "relation_type": rel.relation_type,
                           "confidence": rel.confidence})
-            frontier.append((parent, child_sosa, gen + 1))
-        for parent, rel in ordered[2:]:  # parents supplémentaires (adoption, incertain)
+            frontier.append((parent, sosa * 2 + offset if sosa else None, gen + 1))
+        for parent, rel in pars:
+            if id(parent) in numbered:
+                continue
             edges.append({"id": rel.id, "source": parent.id, "target": person.id, "relation_type": rel.relation_type,
                           "confidence": rel.confidence})
-            frontier.append((parent, sosa * 2, gen + 1))
+            frontier.append((parent, None, gen + 1))
     return {"nodes": list(nodes.values()), "edges": edges, "generations": max_gen + 1, "root_id": root_id}
 
 
