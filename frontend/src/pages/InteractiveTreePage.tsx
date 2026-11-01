@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Crosshair, FileText, Plus, Sparkles, UserPlus, X } from 'lucide-react'
 import { api, ApiError, type PersonSummary } from '../api'
@@ -181,8 +182,8 @@ export default function InteractiveTreePage() {
     if (!layout?.focusPos || !pz.viewportRef.current) return
     const vw = pz.viewportRef.current.clientWidth, vh = pz.viewportRef.current.clientHeight
     const fitK = Math.min((vw - 56) / layout.w, (vh - 130) / layout.h)
-    if (fitK >= 0.55) pz.fit(28, 1, 0, 70)
-    else pz.centerOn(layout.focusPos.x, layout.focusPos.y - 40, Math.max(0.45, Math.min(1, vw / 560)))
+    if (fitK >= 0.7) pz.fit(28, 1, 0, 70)
+    else pz.centerOn(layout.focusPos.x, layout.focusPos.y + 40, Math.max(0.55, Math.min(1, vw / 560, fitK * 1.6)))
   }, [layout, pz])
   const fitKey = layout && data?.focus?.id === focusId ? `${focusId}:${opts.up}` : undefined
 
@@ -268,7 +269,7 @@ export default function InteractiveTreePage() {
         </PanZoomCanvas>
       )}
 
-      {selectedPerson && (
+      {selectedPerson && createPortal(
         <div className="fixed inset-x-2 top-3 z-[95] mx-auto max-w-xl rounded-3xl border border-white/70 bg-white/90 p-2.5 shadow-2xl backdrop-blur-xl print:hidden" style={{ marginTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2.5 px-1">
             <Avatar person={selectedPerson} size={40} />
@@ -284,7 +285,7 @@ export default function InteractiveTreePage() {
             <StripButton icon={<Crosshair size={18} />} label="Centrer ici" onClick={() => { setFocusId(selectedPerson.id); setMenu(false) }} />
             <StripButton icon={<Sparkles size={18} />} label={busyAi ? 'Lancement…' : 'Recherche IA'} onClick={() => runAi(selectedPerson)} disabled={busyAi} accent />
           </div>
-        </div>
+        </div>, document.body,
       )}
       {menu && selectedPerson && (
         <AddRelativeMenu anchor={{ id: selectedPerson.id, display_name: selectedPerson.display_name, sex: selectedPerson.sex, surname: selectedPerson.surname }} onClose={() => setMenu(false)} onAdded={afterAdd} />

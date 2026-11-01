@@ -68,7 +68,7 @@ export default function GlobePage() {
 
   const recenter = useCallback(() => {
     const [lo, la] = centroid(data?.points ?? [])
-    view.current.lambda = -lo; view.current.phi = -la; view.current.zoom = (data?.points.length ?? 0) > 0 ? 1.35 : 1
+    view.current.lambda = -lo; view.current.phi = -la; view.current.zoom = (data?.points.length ?? 0) > 0 ? 1.25 : 1
   }, [data])
   useEffect(() => { recenter() }, [recenter])
 
@@ -276,7 +276,7 @@ export default function GlobePage() {
   )
 
   return (
-    <ChartFrame title="Globe virtuel" subtitle={data ? `${points.length} lieux · ${totalEvents} événements · ${moves.length} migrations` : undefined} color={C} help={help} persons={persons} focusId={focusId} onFocus={setFocusId} options={options}>
+    <ChartFrame title="Globe virtuel" subtitle={data ? `${points.length} lieux · ${totalEvents} événements · ${moves.length} trajets` : undefined} color={C} help={help} persons={persons} focusId={focusId} onFocus={setFocusId} options={options}>
       {loading && <LoadingState label="Chargement des lieux…" color={C} />}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && (

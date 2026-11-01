@@ -267,3 +267,18 @@ export function elbowPath(x1: number, y1: number, x2: number, y2: number, r = 12
   const sx = Math.sign(x2 - x1), sy = Math.sign(y2 - y1)
   return `M${x1},${y1} H${mx - sx * rr} Q${mx},${y1} ${mx},${y1 + sy * rr} V${y2 - sy * rr} Q${mx},${y2} ${mx + sx * rr},${y2} H${x2}`
 }
+
+/**
+ * Parents d'une fiche détaillée, en privilégiant la filiation biologique : le père et la mère d'abord,
+ * puis les autres parents (beau-parent, adoptif…) avec leur type de lien.
+ */
+export function rankedParents(d: { parents: PersonSummary[]; parent_relations: { parent_id: string; relation_type: string }[] }) {
+  const rel = (id: string) => d.parent_relations.find((r) => r.parent_id === id)?.relation_type ?? 'biological'
+  const sorted = [...d.parents].sort((a, b) => (REL_RANK[rel(a.id)] ?? 3) - (REL_RANK[rel(b.id)] ?? 3))
+  const father = sorted.find((p) => p.sex === 'M') ?? null
+  const mother = sorted.find((p) => p.sex === 'F') ?? null
+  const main = [father, mother].filter((p): p is PersonSummary => !!p)
+  for (const p of sorted) if (main.length < 2 && !main.includes(p)) main.push(p)
+  const others = sorted.filter((p) => !main.includes(p)).map((p) => ({ p, relation: rel(p.id) }))
+  return { main, others, relationOf: rel }
+}

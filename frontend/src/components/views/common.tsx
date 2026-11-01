@@ -140,7 +140,10 @@ export function ageBetween(from: string | null | undefined, to: string | null | 
   return `≈ ${y} an${y > 1 ? 's' : ''}`
 }
 
-export function normalize(s: string) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() }
+export function normalize(s: string) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/ł/g, 'l').replace(/ø/g, 'o').replace(/æ/g, 'ae').replace(/œ/g, 'oe').replace(/ß/g, 'ss').replace(/đ/g, 'd')
+}
 
 /** Choix d'une personne dans une feuille iOS (recherche). */
 export function PersonPickerSheet({ persons, currentId, onPick, onClose, title = 'Choisir une personne', color }: { persons: PersonSummary[]; currentId?: string | null; onPick: (id: string) => void; onClose: () => void; title?: string; color?: string }) {

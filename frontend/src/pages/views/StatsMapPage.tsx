@@ -180,7 +180,7 @@ export default function StatsMapPage() {
                 </div>
               </div>
               {tilesFailed && (
-                <div className="absolute inset-x-3 top-3 z-[500] mx-auto flex w-fit items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs text-mist-500 shadow">
+                <div className="absolute left-14 right-3 top-3 z-[500] mx-auto flex w-fit items-center gap-2 rounded-2xl bg-white/95 px-3 py-1.5 text-xs text-mist-500 shadow">
                   <WifiOff size={13} /> Fond de carte indisponible hors ligne — les bulles restent exactes
                 </div>
               )}

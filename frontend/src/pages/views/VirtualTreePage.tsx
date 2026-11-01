@@ -6,6 +6,7 @@ import ChartFrame from '../../components/shell/ChartFrame'
 import { useFocusPerson } from '../../components/shell/useFocusPerson'
 import { COLORS, EmptyState, ErrorState, LoadingState, SEX_GRADIENT, Segmented, Toggle, sexKey, useLoader } from '../../components/views/common'
 import { PersonFactsCard, generationName } from '../../components/views/people'
+import { computeSosa } from '../../components/views/sosa'
 
 const C = COLORS.vues
 const LEVEL_GAP = 210
@@ -35,6 +36,7 @@ function relax(items: { angle: number }[], minGap: number) {
 }
 
 function buildScene(anc: TreeGraph | null, desc: TreeGraph | null): Scene {
+  const sosa = anc ? computeSosa(anc) : new Map<string, number[]>()
   const levelOf = new Map<string, number>()
   const nodes = new Map<string, TreeNode>()
   for (const n of anc?.nodes ?? []) { nodes.set(n.id, n); levelOf.set(n.id, n.generation) }
@@ -62,7 +64,8 @@ function buildScene(anc: TreeGraph | null, desc: TreeGraph | null): Scene {
   for (const [id, n] of nodes) {
     const l = levelOf.get(id)!
     if (l <= 0) continue
-    const s = Math.min(...(n.sosa?.length ? n.sosa : [2 ** l]))
+    const own = sosa.get(id)
+    const s = Math.min(...(own?.length ? own : [2 ** l]))
     const idx = s - 2 ** l
     push(l, n, ((idx + 0.5) / 2 ** l) * Math.PI * 2 - Math.PI)
   }
@@ -174,7 +177,7 @@ export default function VirtualTreePage() {
     if (!v || !scene) return
     const w = v.clientWidth, h = v.clientHeight
     const treeW = scene.maxR * 2 + CARD_W * 1.6
-    const treeH = (scene.maxLevel - scene.minLevel) * LEVEL_GAP + 260
+    const treeH = (scene.maxLevel - scene.minLevel) * LEVEL_GAP + 420
     cam.current.scale = Math.max(0.18, Math.min(1.25, Math.min(w / (treeW * (w < 640 ? 0.7 : 1)), h / treeH) * 0.92))
     apply()
   }, [scene, apply])

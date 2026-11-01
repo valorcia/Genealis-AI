@@ -28,9 +28,15 @@ def person_narrative(db: Session, p: Person) -> dict:
         parts.append({"text": f"{gendate_of(birth).display().capitalize()}, {name} {verb}{where}.",
                       "sources": [c.model_dump() for c in citations_for(db, "event", birth.id)], "confidence": birth.confidence,
                       "year": birth.sort_year})
-    pars = parents_of(db, p.id)
+    all_pars = parents_of(db, p.id)
+    pars = [(pp, r) for pp, r in all_pars if r.relation_type in ("biological", "uncertain", "legal", "adoptive")]
+    others = [(pp, r) for pp, r in all_pars if (pp, r) not in pars]
     if pars:
-        txt = f"{p.given_names or name} est l'enfant de " + " et de ".join(pp.display_name() for pp, _ in pars) + "."
+        kind = "l'enfant adoptif" if all(r.relation_type == "adoptive" for _, r in pars) else "l'enfant"
+        txt = f"{p.given_names or name} est {kind} de " + " et de ".join(pp.display_name() for pp, _ in pars) + "."
+        if others:
+            txt += " " + ", ".join(f"{pp.display_name()} ({'beau-parent' if r.relation_type == 'step' else 'parent nourricier'})"
+                                   for pp, r in others) + (" l'a" if len(others) == 1 else " l'ont") + " également élevé(e)."
         rels = [r for _, r in pars]
         srcs = []
         for r in rels:
@@ -82,5 +88,5 @@ def family_narrative(db: Session, root_id: str, max_generations: int = 6) -> lis
     from .tree import ancestors_graph
 
     g = ancestors_graph(db, root_id, max_generations)
-    ordered = sorted(g["nodes"], key=lambda n: (-n["generation"], min(n["sosa"])))
+    ordered = sorted(g["nodes"], key=lambda n: (-n["generation"], min(n["sosa"] or [10**9])))
     return [person_narrative(db, db.get(Person, n["id"])) for n in ordered if db.get(Person, n["id"])]

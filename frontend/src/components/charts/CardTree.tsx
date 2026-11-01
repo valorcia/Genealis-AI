@@ -1,4 +1,4 @@
-import { memo, useMemo, type ReactNode } from 'react'
+import { memo, useCallback, useMemo, type ReactNode } from 'react'
 import type { PersonSummary } from '../../api'
 import PanZoomCanvas from './PanZoomCanvas'
 import type { PanZoom } from './usePanZoom'
@@ -55,8 +55,20 @@ export default function CardTree({ pz, cards, connectors, opts, onPick, fitKey, 
 }) {
   const pts = useMemo(() => decorations.map((d) => ({ x: d.x, y: d.y })), [decorations])
   const { dx, dy, w, h } = useCardBounds(cards, opts, pts)
+  // Vue initiale : tout l'arbre s'il reste lisible, sinon la personne de départ à une échelle confortable.
+  const onFitted = useCallback(() => {
+    const vp = pz.viewportRef.current; if (!vp) return
+    const fitK = Math.min((vp.clientWidth - 56) / w, (vp.clientHeight - 130) / h)
+    const root = cards.find((c) => c.root)
+    if (fitK >= 0.6 || !root) { pz.fit(28, 1, 0, 70); return }
+    const { w: cw, h: ch } = cardSize(root.variant ?? 'card', opts)
+    const k = Math.max(0.6, Math.min(0.85, fitK * 1.8))
+    const cx = root.x + dx + cw / 2, cy = root.y + dy + ch / 2
+    const leftAnchored = cards.every((c) => c.x >= root.x - 1)
+    pz.centerOn(leftAnchored ? cx + (vp.clientWidth / 2 - 24) / k - cw / 2 : cx, cy, k, -30)
+  }, [pz, w, h, cards, opts, dx, dy])
   return (
-    <PanZoomCanvas pz={pz} width={w} height={h} fitKey={cards.length ? fitKey : undefined} background={background} overlay={overlay} maxFit={1}>
+    <PanZoomCanvas pz={pz} width={w} height={h} fitKey={cards.length ? fitKey : undefined} background={background} overlay={overlay} maxFit={1} onFitted={onFitted}>
       <svg className="pointer-events-none absolute left-0 top-0" width={w} height={h}>
         <g transform={`translate(${dx},${dy})`}>
           {connectors.map((c, i) => <path key={i} d={c.d} fill="none" stroke={c.color ?? '#5b6170'} strokeWidth={c.width ?? 1.4} strokeDasharray={c.dashed ? '5 4' : undefined} strokeLinejoin="round" strokeLinecap="round" />)}

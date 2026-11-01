@@ -21,7 +21,7 @@ def _recalc(db: Session) -> None:
 
 
 @router.get("", response_model=list[PersonSummary])
-def list_persons(db: Session = Depends(get_session), q: str | None = None, limit: int = Query(200, le=2000), offset: int = 0):
+def list_persons(db: Session = Depends(get_session), q: str | None = None, limit: int = Query(200, le=20000), offset: int = 0):
     if q:
         return [svc.person_summary(db, p) for p in svc.search_persons(db, q, limit=limit)]
     rows = db.execute(select(Person).order_by(Person.surname, Person.given_names).limit(limit).offset(offset)).scalars().all()

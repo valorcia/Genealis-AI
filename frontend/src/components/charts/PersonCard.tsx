@@ -40,7 +40,7 @@ export const PersonCard = memo(function PersonCard({
         {opts.showPhotos && <Avatar person={person} size={40} />}
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate text-[13px] font-semibold">{fullName(person)}</div>
-          <div className="truncate text-[11px] text-mist-500">{birth ? `☆ ${birth}` : ''}{death ? `  † ${death}` : ''}{!birth && !death ? 'Dates inconnues' : ''}</div>
+          <div className="truncate text-[11px] text-mist-500">{compactDates(person, birth, death)}</div>
         </div>
         {sosa != null && opts.showSosa && <span className="absolute right-1.5 top-1 text-[9px] font-semibold tabular-nums text-mist-400">{sosa}</span>}
       </div>
@@ -60,6 +60,14 @@ export const PersonCard = memo(function PersonCard({
     </div>
   )
 })
+
+function compactDates(p: PersonSummary, birth: string | null, death: string | null) {
+  if (!birth && !death) return 'Dates inconnues'
+  const long = (birth?.length ?? 0) + (death?.length ?? 0) > 20
+  const b = long ? (p.birth_year ? String(p.birth_year) : birth) : birth
+  const d = long ? (p.death_year ? String(p.death_year) : death) : death
+  return `${b ? `☆ ${b}` : ''}${d ? `${b ? '  ' : ''}† ${d}` : ''}`
+}
 
 function Row({ label, date, place }: { label: string; date: string | null; place: string | null }) {
   return (
