@@ -29,8 +29,15 @@ router = APIRouter(prefix="/api", tags=["system"])
 
 @router.get("/health")
 def health():
+    import os
+
+    detected = [k for k in ("GENEALIS_DATABASE_URL", "DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "DATABASE_URL_UNPOOLED",
+                            "NEON_DATABASE_URL", "BLOB_READ_WRITE_TOKEN", "ACCESS_TOKEN", "CRON_SECRET", "SECRET_KEY", "VERCEL")
+                if os.environ.get(k)]
     return {"status": "ok", "version": __version__, "data_dir": str(settings.data_dir), "serverless": settings.serverless,
-            "auth_required": bool(settings.access_token), "database": "postgresql" if (settings.database_url or "").startswith("postgresql") else "sqlite"}
+            "auth_required": bool(settings.access_token),
+            "database": "postgresql" if (settings.database_url or "").startswith("postgresql") else "sqlite",
+            "env_detected": detected}
 
 
 @router.post("/auth/login")

@@ -73,7 +73,13 @@ settings = Settings()
 
 # Variables d'environnement standard des hébergeurs (Vercel, Neon, Blob)
 if not settings.database_url:
-    settings.database_url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or None
+    settings.database_url = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or os.environ.get("NEON_DATABASE_URL")
+                             or os.environ.get("POSTGRES_PRISMA_URL") or os.environ.get("DATABASE_URL_UNPOOLED") or None)
+if settings.database_url and "?" in settings.database_url:
+    # Les paramètres propres à Prisma/Neon (pgbouncer, connect_timeout…) ne sont pas compris par psycopg
+    base, _, query = settings.database_url.partition("?")
+    keep = [kv for kv in query.split("&") if kv.split("=")[0] in ("sslmode", "options", "channel_binding")]
+    settings.database_url = base + ("?" + "&".join(keep) if keep else "")
 if settings.database_url and settings.database_url.startswith("postgres://"):
     settings.database_url = "postgresql://" + settings.database_url[len("postgres://"):]
 if settings.database_url and settings.database_url.startswith("postgresql://") and "+psycopg" not in settings.database_url:
