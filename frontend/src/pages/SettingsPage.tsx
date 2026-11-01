@@ -161,6 +161,14 @@ function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hoste
   const [testing, setTesting] = useState(false)
   const [testErr, setTestErr] = useState<string | null>(null)
 
+  const [gModels, setGModels] = useState<string[] | null>(null)
+  const [gDetecting, setGDetecting] = useState(false)
+  const [gErr, setGErr] = useState<string | null>(null)
+  const detectGemini = async () => {
+    setGDetecting(true); setGErr(null)
+    try { const m = await api.geminiModels(); setGModels(m); if (m.length === 0) setGErr('Aucun modèle renvoyé : vérifiez la clé.') }
+    catch (e) { setGErr(errMsg(e, 'Détection impossible.')) } finally { setGDetecting(false) }
+  }
   const detect = async () => {
     setDetecting(true); setDetectErr(null)
     try { const m = await api.ollamaModels(); setModels(m); if (m.length === 0) setDetectErr('Ollama est joignable mais aucun modèle n\'est installé.') }
@@ -210,7 +218,16 @@ function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hoste
       {provider === 'gemini' && (
         <Panel title="Gemini (Google AI Studio) — niveau gratuit">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Modèle"><input className="input" value={str(get('gemini_model'), 'gemini-2.5-flash')} onChange={(e) => set('gemini_model', e.target.value)} /></Field>
+            <Field label="Modèle">
+              {gModels && gModels.length > 0
+                ? <select className="input" value={str(get('gemini_model'), 'gemini-3.8-flash')} onChange={(e) => set('gemini_model', e.target.value)}>{Array.from(new Set([str(get('gemini_model'), 'gemini-3.8-flash'), ...gModels])).map((m) => <option key={m} value={m}>{m}</option>)}</select>
+                : <input className="input" value={str(get('gemini_model'), 'gemini-3.8-flash')} onChange={(e) => set('gemini_model', e.target.value)} />}
+              <span className="mt-1 flex items-center gap-2 text-xs text-mist-500">
+                <button className="text-gold-600 hover:underline disabled:opacity-50" disabled={gDetecting || !settings.gemini_api_key_set} onClick={detectGemini}>{gDetecting ? 'Détection…' : 'Détecter les modèles disponibles'}</button>
+                {!settings.gemini_api_key_set && <span>(enregistrez d'abord la clé)</span>}
+                {gErr && <span className="text-conf-orange">{gErr}</span>}
+              </span>
+            </Field>
             <Field label="Clé API Gemini (gratuite)">
               <input type="password" autoComplete="off" className="input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={settings.gemini_api_key_set ? '•••••••••••• (remplacer)' : 'AIza…'} />
               <span className="mt-1 flex items-center gap-2 text-xs">

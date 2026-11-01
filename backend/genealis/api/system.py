@@ -92,6 +92,11 @@ def ai_status(db: Session = Depends(get_session)):
     return test_provider(db)
 
 
+@router.get("/ai/gemini/models")
+def gemini_models(db: Session = Depends(get_session)):
+    return AIClient(db).gemini_models()
+
+
 @router.get("/ai/ollama/models")
 def ollama_models(db: Session = Depends(get_session)):
     return AIClient(db).ollama_models()

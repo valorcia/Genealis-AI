@@ -17,7 +17,7 @@ SECRET_KEYS = {"anthropic_api_key", "openai_api_key", "gemini_api_key", "familys
 DEFAULTS: dict[str, Any] = {
     "autonomy_mode": 3,  # 1 assisté, 2 semi-autonome, 3 autonome contrôlé (défaut : le plus autonome, sans jamais enregistrer l'incertain)
     "ai_provider": "none",  # none | ollama | anthropic | gemini | manual
-    "gemini_model": "gemini-2.5-flash",
+    "gemini_model": "gemini-3.8-flash",
     "ollama_url": "http://127.0.0.1:11434",
     "ollama_model": "llama3.1",
     "ollama_vision_model": "llava",

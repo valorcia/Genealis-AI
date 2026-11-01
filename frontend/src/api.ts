@@ -71,6 +71,7 @@ export const api = {
   patchSettings: (values: Record<string, unknown>) => req<Settings>('/api/settings', { method: 'PATCH', body: JSON.stringify({ values }) }),
   aiStatus: () => req<{ provider: string; available: boolean; ok: boolean; message: string; models?: string[] }>('/api/ai/status'),
   ollamaModels: () => req<string[]>('/api/ai/ollama/models'),
+  geminiModels: () => req<string[]>('/api/ai/gemini/models'),
   transmissions: () => req<{ id: number; ts: string; provider: string; purpose: string; payload_summary: string; bytes_sent: number; contains_personal_data: boolean; authorized: boolean }[]>('/api/transmissions'),
   search: (query: string) => req<{ entity_type: string; entity_id: string; title: string; snippet: string }[]>(`/api/search${q({ q: query })}`),
   dashboard: () => req<Dashboard>('/api/dashboard'),

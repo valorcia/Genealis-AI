@@ -132,7 +132,9 @@ class AIClient:
         key = cfg.get(self.db, "gemini_api_key")
         if not key:
             raise AIUnavailable("Clé Gemini absente.")
-        model = cfg.get(self.db, "gemini_model", "gemini-2.5-flash")
+        model = cfg.get(self.db, "gemini_model") or "gemini-3.8-flash"
+        if model in ("gemini-2.5-flash", "gemini-1.5-flash"):  # anciens noms retirés par Google
+            model = "gemini-3.8-flash"
         parts: list[dict] = [{"text": user}]
         for img in images or []:
             parts.append({"inline_data": {"mime_type": _guess_mime(img), "data": base64.b64encode(img).decode()}})
@@ -143,6 +145,15 @@ class AIClient:
         try:
             r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                            params={"key": key}, json=body, timeout=120)
+            if r.status_code == 404:
+                # Le modèle configuré n'existe plus : on choisit automatiquement un modèle « flash » disponible.
+                fallback = next((m for m in self.gemini_models() if "flash" in m and "lite" not in m), None)
+                if fallback and fallback != model:
+                    logger.warning("Gemini : modèle %s indisponible, repli sur %s", model, fallback)
+                    cfg.set_value(self.db, "gemini_model", fallback)
+                    model = fallback
+                    r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                                   params={"key": key}, json=body, timeout=120)
             if r.status_code != 200:
                 raise AIUnavailable(f"Gemini HTTP {r.status_code} : {r.text[:200]}")
         except httpx.HTTPError as exc:
@@ -197,6 +208,21 @@ class AIClient:
             raise AIUnavailable(f"Erreur API Anthropic : {exc}") from exc
         text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
         return AIResponse(text, "anthropic", model, msg)
+
+    def gemini_models(self) -> list[str]:
+        """Modèles Gemini disponibles pour cette clé (ceux qui acceptent generateContent), les plus récents d'abord."""
+        key = cfg.get(self.db, "gemini_api_key")
+        if not key:
+            return []
+        try:
+            r = httpx.get("https://generativelanguage.googleapis.com/v1beta/models", params={"key": key, "pageSize": 200}, timeout=20)
+            r.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        names = [m["name"].split("/", 1)[-1] for m in r.json().get("models", [])
+                 if "generateContent" in (m.get("supportedGenerationMethods") or [])]
+        names = [n for n in names if n.startswith("gemini")]
+        return sorted(names, reverse=True)
 
     def ollama_models(self) -> list[str]:
         url = cfg.get(self.db, "ollama_url", "http://127.0.0.1:11434").rstrip("/")
