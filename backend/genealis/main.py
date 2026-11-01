@@ -17,6 +17,7 @@ from .agents import engine
 from .api import book, costs, documents, interpret, investigations, paleo, persons, research, sources, system, trace, tree, worker
 from .config import settings
 from .db import create_all, init_engine, session_scope
+from .investigation import runner as investigation_runner
 from .services import settings_service as cfg
 
 
@@ -56,6 +57,7 @@ def ensure_initialized() -> None:
     create_all()
     with session_scope() as db:
         engine.recover_interrupted(db)
+    investigation_runner.on_startup()  # v0.4 : reprise des tâches d'enquête interrompues (bail expiré)
     _initialized = True
 
 
@@ -65,11 +67,13 @@ async def lifespan(app: FastAPI):
     if not settings.serverless:
         engine.worker.start()
         _schedule_backups()
+        investigation_runner.start_local_scheduler()  # v0.4 : GENEALIS RESEARCH DIRECTOR
     logging.getLogger("genealis").info("GENEALIS AI %s démarré — %s — données : %s", __version__,
                                        "mode hébergé (à la demande)" if settings.serverless else "mode local", settings.data_dir)
     yield
     if not settings.serverless:
         await engine.worker.stop()
+        investigation_runner.stop_local_scheduler()
 
 
 def _schedule_backups() -> None:

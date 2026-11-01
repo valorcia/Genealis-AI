@@ -125,7 +125,16 @@ async def cron(request: Request):
     auth = request.headers.get("authorization", "")
     if app_settings.cron_secret and auth != f"Bearer {app_settings.cron_secret}":
         raise HTTPException(401, "Non autorisé")
-    return await engine.run_budget(240, max_tasks=40)
+    import time
+
+    from ..investigation import runner as investigation_runner
+
+    t0 = time.monotonic()
+    res = await engine.run_budget(150, max_tasks=40)
+    # v0.4 : enquêtes autonomes (GENEALIS RESEARCH DIRECTOR) avec le temps restant de la fonction
+    left = max(20.0, 270.0 - (time.monotonic() - t0))
+    res["investigations"] = await asyncio.to_thread(investigation_runner.run_budget, left)
+    return res
 
 
 @router.post("/worker/pause")
