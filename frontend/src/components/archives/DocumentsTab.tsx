@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ClipboardCopy, Download, ExternalLink, FileSearch, FileText, Save, Sparkles, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, BookOpenText, ClipboardCopy, Download, ExternalLink, FileSearch, FileText, Save, Sparkles, Trash2, Upload, X } from 'lucide-react'
 import { api, openExternal, type MediaOut, type PersonSummary } from '../../api'
 import { useApp } from '../../store'
 import { Empty, Field, Spinner, formatDate } from '../ui'
@@ -136,6 +136,7 @@ function MediaDetail({ id, persons, onClose, onChanged }: { id: string; persons:
         </div>
         <div className="flex flex-wrap gap-1">
           <Link className="btn-gold !py-1" to={`/documents/importer?media=${m.id}`} title="Lire le document et proposer les ajouts à l’arbre, à valider"><Sparkles size={14} />Interpréter ce document</Link>
+          <Link className="btn-ghost !py-1" to={`/documents/${m.id}/lecture`} title="Lecteur : zoom, contraste, transcription ligne par ligne, traduction, corrections"><BookOpenText size={14} />Lire le document</Link>
           <button className="btn-ghost !py-1" disabled={busy !== null} onClick={() => act('an', () => api.analyzeMedia(m.id), 'Analyse lancée : suivez-la dans Enquêtes IA.')}>{busy === 'an' ? <Spinner /> : <FileSearch size={14} />}Analyser</button>
           <button className="btn-danger !py-1" onClick={del}><Trash2 size={14} /></button>
           <button className="btn-ghost !p-1.5" onClick={onClose}><X size={15} /></button>
