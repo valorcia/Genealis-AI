@@ -138,8 +138,11 @@ class AIClient:
         parts: list[dict] = [{"text": user}]
         for img in images or []:
             parts.append({"inline_data": {"mime_type": _guess_mime(img), "data": base64.b64encode(img).decode()}})
+        # Les modèles Gemini récents « réfléchissent » avant de répondre : ces jetons comptent dans la limite de sortie,
+        # on réserve donc une marge large pour ne jamais recevoir une réponse vide (finishReason MAX_TOKENS).
+        budget = min(max(max_tokens * 4, 4096), 32768)
         body: dict[str, Any] = {"system_instruction": {"parts": [{"text": system}]}, "contents": [{"role": "user", "parts": parts}],
-                                "generationConfig": {"temperature": 0.1, "maxOutputTokens": max_tokens}}
+                                "generationConfig": {"temperature": 0.1, "maxOutputTokens": budget}}
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
         try:
@@ -159,10 +162,17 @@ class AIClient:
         except httpx.HTTPError as exc:
             raise AIUnavailable(f"Gemini injoignable : {exc}") from exc
         data = r.json()
-        try:
-            text = "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
-        except (KeyError, IndexError):
-            raise AIUnavailable(f"Réponse Gemini inattendue : {str(data)[:200]}")
+        text = _gemini_text(data)
+        if text is None and (data.get("candidates") or [{}])[0].get("finishReason") == "MAX_TOKENS":
+            # Réponse vide car la réflexion a consommé le budget : second essai avec le maximum.
+            body["generationConfig"]["maxOutputTokens"] = 32768
+            r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                           params={"key": key}, json=body, timeout=180)
+            data = r.json() if r.status_code == 200 else {}
+            text = _gemini_text(data)
+        if text is None:
+            block = (data.get("promptFeedback") or {}).get("blockReason")
+            raise AIUnavailable("Gemini : contenu bloqué par les filtres de sécurité du modèle." if block else f"Réponse Gemini inattendue : {str(data)[:200]}")
         return AIResponse(text, "gemini", model, data)
 
     def _ollama(self, system: str, user: str, json_mode: bool, max_tokens: int, images: list[bytes] | None) -> AIResponse:
@@ -232,6 +242,15 @@ class AIClient:
             return [m["name"] for m in r.json().get("models", [])]
         except httpx.HTTPError:
             return []
+
+
+def _gemini_text(data: dict) -> str | None:
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+    return text if text.strip() else None
 
 
 def _guess_mime(data: bytes) -> str:
