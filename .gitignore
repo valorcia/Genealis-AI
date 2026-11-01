@@ -8,12 +8,11 @@ build/
 *.db-journal
 *.db-wal
 *.db-shm
-data/
+/data/
 .pytest_cache/
 frontend/dist/
 src-tauri/target/
 src-tauri/binaries/
 src-tauri/gen/schemas/
-*.spec
 .env
 backend/genealis_data/
