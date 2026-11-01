@@ -126,6 +126,10 @@ def create_app() -> FastAPI:
 
         @app.get("/{full_path:path}", include_in_schema=False)
         def spa(full_path: str):
+            if full_path == "api" or full_path.startswith("api/"):
+                from fastapi import HTTPException
+
+                raise HTTPException(404, "Route API inconnue")
             target = front / full_path
             if full_path and target.is_file():
                 return FileResponse(target)
