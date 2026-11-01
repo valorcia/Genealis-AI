@@ -254,6 +254,31 @@ def map_findings(data: Any, grounding: dict, connector_id: str = "gemini_web") -
     return out, traced
 
 
+class AIQuotaPause(RuntimeError):
+    """Recherche reportée (plafond GENEALIS ou quota Google) : rien n'a été envoyé, elle sera relancée plus tard."""
+
+    def __init__(self, message: str, retry_after_s: int | None = None):
+        super().__init__(message)
+        self.retry_after_s = retry_after_s
+
+
+def quota_message(exc) -> str:
+    """Explique clairement QUI a arrêté l'appel : une limite de GENEALIS (réglable) ou le quota de Google."""
+    scope = getattr(exc, "scope", "")
+    wait = getattr(exc, "retry_after_s", None)
+    if scope == "minute":
+        return ("limite de sécurité de GENEALIS (nombre d'appels par minute) atteinte : la recherche est reportée "
+                "d'une minute environ, rien n'a été envoyé à Google")
+    if scope == "daily":
+        return ("plafond quotidien d'appels IA de GENEALIS atteint : reprise demain, ou augmentez le plafond dans "
+                "Recherche IA → Coûts et quotas IA")
+    if scope == "provider":
+        mins = f" environ {max(1, int(wait) // 60)} min" if wait else " un moment"
+        return (f"Google indique que le quota gratuit de Gemini est épuisé : GENEALIS attend{mins} avant de réessayer "
+                "automatiquement")
+    return str(exc)
+
+
 def friendly_gemini_error(msg: str) -> str:
     """Message compréhensible par un débutant à partir de l'erreur technique de Gemini."""
     low = msg.lower()
@@ -261,7 +286,7 @@ def friendly_gemini_error(msg: str) -> str:
     code = m.group(1) if m else None
     if "api key not valid" in low or "api_key_invalid" in low or (code == "400" and "key" in low):
         reason = "Google refuse la clé Gemini (clé invalide ou supprimée) : vérifiez-la dans Paramètres → Intelligence artificielle"
-    elif code == "429" or "quota" in low or "resource_exhausted" in low:
+    elif code == "429" or "resource_exhausted" in low or "quota gemini atteint" in low:
         reason = "le quota gratuit de Gemini est épuisé pour le moment : réessayez plus tard"
     elif code in ("401", "403") or "permission" in low:
         reason = "Google refuse l'accès avec cette clé (droits insuffisants)"
@@ -301,7 +326,7 @@ class GeminiWebConnector(ArchiveConnector):
 
     @staticmethod
     def _client_call(system: str, user: str, purpose: str, personal: bool, max_tokens: int) -> Any:
-        from ..ai.providers import AIClient, AIUnavailable
+        from ..ai.providers import AIClient, AIUnavailable, QuotaExceeded
         from ..db import session_scope
 
         with session_scope() as db:
@@ -312,6 +337,9 @@ class GeminiWebConnector(ArchiveConnector):
                 raise AccessRestricted(f"Recherche web IA indisponible : {reason} (Paramètres → Intelligence artificielle).")
             try:
                 return ai.complete(system, user, purpose=purpose, personal=personal, max_tokens=max_tokens, web_search=True)
+            except QuotaExceeded as exc:
+                db.commit()  # conserve la trace du refus (tableau des coûts) malgré l'exception
+                raise AIQuotaPause("Recherche reportée : " + quota_message(exc), exc.retry_after_s) from exc
             except AIUnavailable as exc:
                 raise RuntimeError(friendly_gemini_error(str(exc))) from exc
 

@@ -170,6 +170,18 @@ class ResearcherAgent:
                          "site": ctx["site"], "error": str(exc)})
             return []
         except Exception as exc:
+            from ..connectors.gemini_web import AIQuotaPause
+
+            if isinstance(exc, AIQuotaPause):
+                # Plafond ou quota : rien n'a été envoyé. La recherche n'est PAS comptée comme faite : elle sera relancée.
+                wait = max(60, int(exc.retry_after_s or 60))
+                step["status"] = "deferred"
+                step["result"] = {**ctx, **timing(), "status": "deferred", "count": 0, "results": [], "error": str(exc),
+                                  "retry_after": (utcnow() + timedelta(seconds=wait)).isoformat(timespec="seconds"),
+                                  "message": f"{name} : {exc} Elle sera relancée automatiquement."}
+                log(db, f"{name} : {exc}", category="connector", level="warning", task_id=task.id, person_id=task.person_id,
+                    connector_id=cid, outcome={"status": "deferred", "count": 0, "site": ctx["site"], "error": str(exc)})
+                return []
             step["status"] = "failed"
             technical = str(exc.__cause__ or exc)[:500]
             step["result"] = {**ctx, **timing(), "status": "error", "count": 0, "results": [], "error": technical,
@@ -554,8 +566,11 @@ class ResearchWorker:
         with session_scope() as db:
             if cfg.get(db, "research_pause", False):
                 return False
-            task = db.execute(select(ResearchTask).where(ResearchTask.status == "queued")
-                              .order_by(ResearchTask.priority.desc(), ResearchTask.created_at.asc())).scalars().first()
+            now_iso = utcnow().isoformat(timespec="seconds")
+            candidates = db.execute(select(ResearchTask).where(ResearchTask.status == "queued")
+                                    .order_by(ResearchTask.priority.desc(), ResearchTask.created_at.asc()).limit(50)).scalars().all()
+            # Tâches reportées (plafond ou quota IA) : pas avant leur heure de reprise
+            task = next((t for t in candidates if str((t.result or {}).get("retry_after") or "") <= now_iso), None)
             if task is None:
                 return False
             task.status = "running"
@@ -568,6 +583,19 @@ class ResearchWorker:
             with session_scope() as db:
                 task = db.get(ResearchTask, tid)
                 await coordinator.execute(db, task)
+                deferred = [st for st in (task.plan or []) if st.get("status") == "deferred"]
+                if deferred:
+                    # Au moins une recherche a été reportée (plafond ou quota IA) : la tâche reviendra en file plus tard,
+                    # sans jamais être marquée « déjà effectuée ».
+                    retry = max(str((st.get("result") or {}).get("retry_after") or "") for st in deferred)
+                    task.status = "queued"
+                    task.attempts = max(0, (task.attempts or 1) - 1)
+                    task.result = {**(task.result or {}), "retry_after": retry}
+                    log(db, f"« {task.title} » : recherche reportée (limite d'appels IA) — reprise automatique après "
+                            f"{retry[11:16]} UTC.", category="decision", task_id=tid, person_id=task.person_id)
+                    notify({"type": "task", "id": tid, "status": "queued", "title": task.title})
+                    return True
+                task.result = {k: v for k, v in (task.result or {}).items() if k != "retry_after"}
                 task.status = "done"
                 task.finished_at = utcnow()
                 run_consistency(db)

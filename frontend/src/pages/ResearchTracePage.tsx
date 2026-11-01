@@ -139,7 +139,7 @@ function StepCard({ st }: { st: TraceStep }) {
   const outcome = st.outcome
   return (
     <li className="relative">
-      <span className={`absolute -left-[25px] top-4 h-3 w-3 rounded-full ring-4 ring-white sm:-left-[29px] ${outcome === 'ok' ? 'bg-conf-green' : outcome === 'error' ? 'bg-conf-red' : outcome === 'restricted' ? 'bg-conf-orange' : outcome === 'manual' ? 'bg-[#5b3fd6]' : 'bg-mist-400'}`} aria-hidden />
+      <span className={`absolute -left-[25px] top-4 h-3 w-3 rounded-full ring-4 ring-white sm:-left-[29px] ${outcome === 'ok' ? 'bg-conf-green' : outcome === 'error' ? 'bg-conf-red' : outcome === 'restricted' || outcome === 'deferred' ? 'bg-conf-orange' : outcome === 'manual' ? 'bg-[#5b3fd6]' : 'bg-mist-400'}`} aria-hidden />
       <div className={`rounded-2xl p-3 ring-1 sm:p-4 ${isWeb ? 'bg-[#f7f5ff] ring-[#5b3fd6]/20' : 'bg-[#f7f8fc] ring-black/5'}`}>
         <div className="flex items-start gap-3">
           {isWeb ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: AI.color }}><Sparkles size={18} /></span> : <SiteIcon domain={domain} name={name} size={36} />}
@@ -157,7 +157,7 @@ function StepCard({ st }: { st: TraceStep }) {
           {duration(r.duration_ms) && <span>durée {duration(r.duration_ms)}</span>}
           {typeof r.count === 'number' && st.action === 'search' && <span>{r.count} résultat{r.count > 1 ? 's' : ''}</span>}
         </div>
-        {r.message && <p className={`mt-2 text-[13px] leading-snug ${outcome === 'error' ? 'text-conf-red' : outcome === 'restricted' ? 'text-[#8a5a10]' : 'text-night-900/80'}`}>{r.message}</p>}
+        {r.message && <p className={`mt-2 text-[13px] leading-snug ${outcome === 'error' ? 'text-conf-red' : outcome === 'restricted' || outcome === 'deferred' ? 'text-[#8a5a10]' : 'text-night-900/80'}`}>{r.message}</p>}
         {!r.message && st.status === 'pending' && <p className="mt-2 text-[13px] text-mist-500">Ce site n’a pas encore été interrogé.</p>}
         {r.error && r.message && !r.message.includes(r.error) && <details className="mt-1 text-[12px] text-mist-500"><summary className="cursor-pointer">Détail technique</summary><p className="mt-1 break-words">{r.error}</p></details>}
 

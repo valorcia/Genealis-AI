@@ -29,6 +29,7 @@ export const OUTCOME: Record<string, { label: string; cls: string }> = {
   running: { label: 'En cours…', cls: 'conf-orange' },
   skipped: { label: 'Non nécessaire', cls: 'conf-grey' },
   done: { label: 'Fait', cls: 'conf-green' },
+  deferred: { label: 'Reportée (limite d’appels IA)', cls: 'conf-orange' },
 }
 
 export function OutcomeChip({ outcome }: { outcome: StepOutcome | null | undefined }) {
