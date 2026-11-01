@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, BookOpen, Cpu, Database, Download, FolderOpen, Info, KeyRound, Lock, RefreshCw, RotateCcw, Save, ScrollText, Shield, ShieldCheck, Sliders, Trash2, Unlock } from 'lucide-react'
+import { AlertTriangle, BookOpen, Cpu, Database, Download, FolderOpen, Info, KeyRound, Lock, Radar, RefreshCw, RotateCcw, Save, ScrollText, Shield, ShieldCheck, Sliders, Trash2, Unlock } from 'lucide-react'
 import { api, ApiError, type Settings } from '../api'
 import { useApp } from '../store'
 import { Empty, Field, Panel, Spinner, formatDate } from '../components/ui'
 import { AutonomyCards } from '../components/settings/AutonomyCards'
+import { GeminiAudit, V04Settings } from '../components/settings/V04Settings'
 
-type TabKey = 'general' | 'ia' | 'sauvegardes' | 'confidentialite' | 'journal' | 'apropos'
+type TabKey = 'general' | 'ia' | 'enquetes' | 'sauvegardes' | 'confidentialite' | 'journal' | 'apropos'
 const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
   { key: 'general', label: 'Général', icon: <Sliders size={15} /> },
   { key: 'ia', label: 'Intelligence artificielle', icon: <Cpu size={15} /> },
+  { key: 'enquetes', label: 'Enquêtes et coûts', icon: <Radar size={15} /> },
   { key: 'sauvegardes', label: 'Sauvegardes', icon: <Database size={15} /> },
   { key: 'confidentialite', label: 'Confidentialité', icon: <Shield size={15} /> },
   { key: 'journal', label: 'Journal technique', icon: <ScrollText size={15} /> },
@@ -89,6 +91,7 @@ export default function SettingsPage() {
 
       {settings && tab === 'general' && <GeneralTab get={get} set={set} />}
       {settings && tab === 'ia' && <AiTab get={get} set={set} settings={settings} apiKey={apiKey} setApiKey={setApiKey} removeKey={removeKey} saving={saving} hosted={Boolean(health?.serverless)} secretKeyMissing={Boolean(health?.serverless && health && !health.secret_key_set)} />}
+      {tab === 'enquetes' && <V04Settings />}
       {settings && tab === 'sauvegardes' && <BackupsTab get={get} set={set} health={health} notify={notify} />}
       {tab === 'confidentialite' && <PrivacyTab get={get} />}
       {tab === 'journal' && <JournalTab />}
@@ -238,6 +241,8 @@ function AiTab({ get, set, settings, apiKey, setApiKey, removeKey, saving, hoste
             </Field>
           </div>
           <p className="mt-3 text-xs text-mist-500">Pensez à activer « Autoriser l'envoi de données à un fournisseur d'IA externe » ci-dessous : les images d'actes sont transmises à Google pour lecture.</p>
+          {settings.gemini_api_key_set && <GeminiAudit compact onUseModel={(m) => set('gemini_model', m)} />}
+          <p className="mt-3 text-xs text-mist-500">Quotas, plafonds d'appels et budget : onglet <Link to="/parametres?tab=enquetes" className="text-gold-600 underline">Enquêtes et coûts</Link>.</p>
         </Panel>
       )}
 

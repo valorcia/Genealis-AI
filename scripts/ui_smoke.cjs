@@ -9,9 +9,10 @@ const routes = ['/', '/demarrer', '/section/recherche', '/section/editer', '/sec
   '/vues/cartes-statistiques', '/vues/quiz', '/rapports/synthese-personnelle', '/rapports/ascendance', '/rapports/chronique', '/rapports/etat-de-la-base',
   '/histoire', '/listes/personnes', '/listes/familles', '/listes/medias', '/listes/anniversaires', '/publication/site', '/publication/supprimer-sous-arbre',
   '/enquetes', '/archives', '/questions', '/assistant', '/parametres', '/bienvenue', '/section/livre', '/livre', '/livre/personne',
-  '/livre/metiers', '/livre/villages', '/livre/a-trouver', '/documents/importer', '/sources-consultees', '/archives?tab=sources']
+  '/livre/metiers', '/livre/villages', '/livre/a-trouver', '/documents/importer', '/sources-consultees', '/archives?tab=sources',
+  '/investigation', '/couts', '/parametres?tab=enquetes']
 ;(async () => {
-  const browser = await chromium.launch()
+  const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})
   const mobile = process.env.MOBILE === '1'
   const ctx = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: 1440, height: 900 } })
   const page = await ctx.newPage()
@@ -30,6 +31,8 @@ const routes = ['/', '/demarrer', '/section/recherche', '/section/editer', '/sec
   const tasks = await (await page.request.get(`${base}/api/trace/tasks`, { headers: process.env.GENEALIS_PASSWORD ? { 'X-Genealis-Token': process.env.GENEALIS_PASSWORD } : {} })).json().catch(() => [])
   const tlist = Array.isArray(tasks) ? tasks : (tasks.tasks || tasks.items || [])
   if (tlist.length) routes.push(`/enquetes/${tlist[0].id}`)
+  const invs = await (await page.request.get(`${base}/api/investigations`, { headers: process.env.GENEALIS_PASSWORD ? { 'X-Genealis-Token': process.env.GENEALIS_PASSWORD } : {} })).json().catch(() => [])
+  routes.push(`/investigation/${Array.isArray(invs) && invs.length ? invs[0].id : 'inexistante'}`)
   let bad = 0
   for (const r of routes) {
     current = r
