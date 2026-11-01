@@ -35,6 +35,8 @@ class AIResponse:
     provider: str
     model: str
     raw: Any = None
+    # Recherche web (Gemini + Google Search) : requêtes lancées, pages consultées, phrases justifiées par source
+    grounding: Optional[dict] = None
 
     def json(self) -> Any:
         """Extrait un objet JSON de la réponse (tolère les blocs ```json)."""
@@ -112,22 +114,32 @@ class AIClient:
                 "Transmission vers un modèle hébergé refusée : activez « Autoriser l'IA externe » dans les paramètres.")
 
     # ---- appels ----
+    def can_search_web(self) -> bool:
+        """La recherche web vérifiable (avec sources) n'est disponible qu'avec Gemini (outil Google Search)."""
+        return self.provider == "gemini" and self.available()
+
     def complete(self, system: str, user: str, *, purpose: str = "analyse", personal: bool = True,
                  json_mode: bool = False, max_tokens: int = 2000, images: list[bytes] | None = None,
-                 tools: list[dict] | None = None) -> AIResponse:
+                 tools: list[dict] | None = None, attachments: list[tuple[bytes, str]] | None = None,
+                 web_search: bool = False) -> AIResponse:
+        """Appel du modèle. `attachments` = [(octets, type MIME)] (images, PDF) ; `web_search` = recherche Google (Gemini)."""
+        if web_search and self.provider != "gemini":
+            raise AIUnavailable("La recherche web avec sources nécessite Gemini (Paramètres → Intelligence artificielle).")
+        files: list[tuple[bytes, str]] = [(i, _guess_mime(i)) for i in (images or [])] + list(attachments or [])
         if self.provider == "ollama":
-            return self._ollama(system, user, json_mode, max_tokens, images)
+            return self._ollama(system, user, json_mode, max_tokens, [b for b, m in files if m.startswith("image/")] or None)
         if self.provider == "anthropic":
             self._check_external(purpose, user, personal)
-            return self._anthropic(system, user, max_tokens, images, tools)
+            return self._anthropic(system, user, max_tokens, files, tools)
         if self.provider == "gemini":
             self._check_external(purpose, user, personal)
-            return self._gemini(system, user, json_mode, max_tokens, images)
+            return self._gemini(system, user, json_mode and not web_search, max_tokens, files, web_search)
         if self.provider == "manual":
             raise AIUnavailable("Mode copier-coller : utilisez « Analyser avec Claude / ChatGPT » sur le document, puis collez la réponse.")
         raise AIUnavailable("Aucun fournisseur IA configuré (Paramètres → Intelligence artificielle).")
 
-    def _gemini(self, system: str, user: str, json_mode: bool, max_tokens: int, images: list[bytes] | None) -> AIResponse:
+    def _gemini(self, system: str, user: str, json_mode: bool, max_tokens: int, files: list[tuple[bytes, str]],
+                web_search: bool = False) -> AIResponse:
         """Google Gemini (API REST, niveau gratuit disponible sans carte bancaire sur aistudio.google.com)."""
         key = cfg.get(self.db, "gemini_api_key")
         if not key:
@@ -136,8 +148,8 @@ class AIClient:
         if model in ("gemini-2.5-flash", "gemini-1.5-flash"):  # anciens noms retirés par Google
             model = "gemini-3.8-flash"
         parts: list[dict] = [{"text": user}]
-        for img in images or []:
-            parts.append({"inline_data": {"mime_type": _guess_mime(img), "data": base64.b64encode(img).decode()}})
+        for data, mime in files:
+            parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}})
         # Les modèles Gemini récents « réfléchissent » avant de répondre : ces jetons comptent dans la limite de sortie,
         # on réserve donc une marge large pour ne jamais recevoir une réponse vide (finishReason MAX_TOKENS).
         budget = min(max(max_tokens * 4, 4096), 32768)
@@ -145,6 +157,8 @@ class AIClient:
                                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": budget}}
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
+        if web_search:
+            body["tools"] = [{"google_search": {}}]
         try:
             r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                            params={"key": key}, json=body, timeout=120)
@@ -173,7 +187,8 @@ class AIClient:
         if text is None:
             block = (data.get("promptFeedback") or {}).get("blockReason")
             raise AIUnavailable("Gemini : contenu bloqué par les filtres de sécurité du modèle." if block else f"Réponse Gemini inattendue : {str(data)[:200]}")
-        return AIResponse(text, "gemini", model, data)
+        grounding = parse_grounding(data) if web_search else None
+        return AIResponse(text, "gemini", model, data, grounding)
 
     def _ollama(self, system: str, user: str, json_mode: bool, max_tokens: int, images: list[bytes] | None) -> AIResponse:
         url = cfg.get(self.db, "ollama_url", "http://127.0.0.1:11434").rstrip("/")
@@ -192,7 +207,7 @@ class AIClient:
         data = r.json()
         return AIResponse(data.get("message", {}).get("content", ""), "ollama", model, data)
 
-    def _anthropic(self, system: str, user: str, max_tokens: int, images: list[bytes] | None,
+    def _anthropic(self, system: str, user: str, max_tokens: int, files: list[tuple[bytes, str]],
                    tools: list[dict] | None) -> AIResponse:
         try:
             import anthropic
@@ -204,9 +219,9 @@ class AIClient:
         model = cfg.get(self.db, "anthropic_model", "claude-sonnet-5-5")
         client = anthropic.Anthropic(api_key=key)
         content: list[dict] = []
-        for img in images or []:
-            content.append({"type": "image", "source": {"type": "base64", "media_type": _guess_mime(img),
-                                                        "data": base64.b64encode(img).decode()}})
+        for data, mime in files:
+            kind = "document" if mime == "application/pdf" else "image"
+            content.append({"type": kind, "source": {"type": "base64", "media_type": mime, "data": base64.b64encode(data).decode()}})
         content.append({"type": "text", "text": user})
         kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "system": system,
                                   "messages": [{"role": "user", "content": content}]}
@@ -242,6 +257,48 @@ class AIClient:
             return [m["name"] for m in r.json().get("models", [])]
         except httpx.HTTPError:
             return []
+
+
+def resolve_redirect(uri: str, timeout: float = 6.0) -> str:
+    """Les sources Google sont des liens de redirection : on récupère l'adresse réelle de la page (sans la télécharger)."""
+    if "grounding-api-redirect" not in uri and "vertexaisearch" not in uri:
+        return uri
+    try:
+        r = httpx.get(uri, follow_redirects=False, timeout=timeout)
+        loc = r.headers.get("location")
+        if loc and loc.startswith("http"):
+            return loc
+    except httpx.HTTPError:
+        pass
+    return uri
+
+
+def parse_grounding(data: dict) -> dict:
+    """Extrait de la réponse Gemini les requêtes Google lancées, les pages sources et les passages qu'elles justifient."""
+    from concurrent.futures import ThreadPoolExecutor
+    from urllib.parse import urlparse
+
+    try:
+        meta = data["candidates"][0].get("groundingMetadata") or {}
+    except (KeyError, IndexError, TypeError):
+        meta = {}
+    chunks = [c.get("web") or {} for c in meta.get("groundingChunks") or []]
+    uris = [c.get("uri", "") for c in chunks]
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        resolved = list(ex.map(resolve_redirect, uris)) if uris else []
+    sources = []
+    for i, c in enumerate(chunks):
+        url = resolved[i] if i < len(resolved) else c.get("uri")
+        domain = (urlparse(url).netloc or c.get("title") or "").replace("www.", "")
+        sources.append({"index": i, "title": c.get("title") or domain, "url": url, "domain": domain or c.get("title")})
+    supports = []
+    for sup in meta.get("groundingSupports") or []:
+        seg = (sup.get("segment") or {}).get("text")
+        idx = sup.get("groundingChunkIndices") or []
+        if seg:
+            supports.append({"text": seg, "sources": [i for i in idx if i < len(sources)]})
+    return {"queries": meta.get("webSearchQueries") or [], "sources": sources, "supports": supports,
+            "search_entry_point": bool(meta.get("searchEntryPoint"))}
 
 
 def _gemini_text(data: dict) -> str | None:

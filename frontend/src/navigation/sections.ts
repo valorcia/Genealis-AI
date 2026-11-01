@@ -3,7 +3,7 @@
  * chacune affichée comme une grille de tuiles. La recherche IA est la catégorie centrale (accueil).
  * Ce fichier est la source unique des routes affichées dans les hubs, les favoris et la barre de catégories.
  */
-export type SectionId = 'recherche' | 'editer' | 'graphiques' | 'vues' | 'rapports' | 'listes' | 'publication' | 'favoris'
+export type SectionId = 'recherche' | 'livre' | 'editer' | 'graphiques' | 'vues' | 'rapports' | 'listes' | 'publication' | 'favoris'
 
 export interface Tile {
   id: string
@@ -37,12 +37,25 @@ export const SECTIONS: Section[] = [
       { id: 'centre', label: 'Centre de recherche', route: '/', icon: 'Sparkles', featured: true, description: 'Ce que le généalogiste IA fait et ce qu’il attend de vous' },
       { id: 'demarrer', label: 'Démarrer par mes grands-parents', route: '/demarrer', icon: 'Rocket', featured: true, description: 'Le moyen le plus simple de commencer' },
       { id: 'questions', label: 'Questions', route: '/questions', icon: 'MessageCircleQuestion', featured: true, countKey: 'questions_pending', countLabel: 'en attente' },
-      { id: 'enquetes', label: 'Enquêtes', route: '/enquetes', icon: 'Search', countKey: 'tasks_queued', countLabel: 'en file' },
+      { id: 'importer-document', label: 'Importer un acte ou une photo', route: '/documents/importer', icon: 'FileUp', featured: true, description: 'L’IA lit l’image et propose les ajouts' },
+      { id: 'recherches-faites', label: 'Recherches effectuées', route: '/enquetes', icon: 'History', featured: true, countKey: 'tasks_queued', countLabel: 'en file' },
+      { id: 'sites', label: 'Sites consultés', route: '/sources-consultees', icon: 'Globe' },
       { id: 'assistant', label: 'Assistant IA', route: '/assistant', icon: 'Bot' },
       { id: 'archives-web', label: 'Documents archivés', route: '/archives?tab=documents', icon: 'Archive', countKey: 'documents_total', countLabel: 'documents' },
       { id: 'connecteurs', label: 'Sources d’archives', route: '/enquetes?tab=connecteurs', icon: 'Landmark' },
       { id: 'insee', label: 'Fichier des décès', route: '/archives?tab=insee', icon: 'BookMarked' },
       { id: 'tableau', label: 'Tableau de bord', route: '/tableau-de-bord', icon: 'LayoutDashboard' },
+    ],
+  },
+  {
+    id: 'livre', label: 'Livre', title: 'Livre de famille', icon: 'BookOpen', color: '#8a5a2b', gradient: ['#f7efe2', '#ecdcc2'],
+    tiles: [
+      { id: 'livre', label: 'Le livre de la famille', route: '/livre', icon: 'BookOpen', featured: true, description: 'L’histoire de chaque ancêtre, page par page' },
+      { id: 'chapitre', label: 'Ma vie, racontée', route: '/livre/personne', icon: 'Feather', featured: true, description: 'La biographie d’une personne' },
+      { id: 'metiers', label: 'Métiers', route: '/livre/metiers', icon: 'Hammer', featured: true },
+      { id: 'villages', label: 'Villages', route: '/livre/villages', icon: 'Church', featured: true },
+      { id: 'histoire', label: 'Histoire familiale', route: '/histoire', icon: 'NotebookPen' },
+      { id: 'pdf', label: 'Imprimer le livre', route: '/livre?imprimer=1', icon: 'Printer' },
     ],
   },
   {
@@ -146,7 +159,8 @@ export const ALL_TILES: (Tile & { section: SectionId })[] = SECTIONS.flatMap((s)
 
 /** Section d'une route (première tuile correspondante), pour colorer la page courante. */
 export function sectionForPath(pathname: string): SectionId {
-  if (pathname === '/' || pathname.startsWith('/demarrer') || pathname.startsWith('/enquetes') || pathname.startsWith('/questions') || pathname.startsWith('/assistant') || pathname.startsWith('/tableau-de-bord')) return 'recherche'
+  if (pathname.startsWith('/livre')) return 'livre'
+  if (pathname === '/' || pathname.startsWith('/demarrer') || pathname.startsWith('/documents') || pathname.startsWith('/sources-consultees') || pathname.startsWith('/enquetes') || pathname.startsWith('/questions') || pathname.startsWith('/assistant') || pathname.startsWith('/tableau-de-bord')) return 'recherche'
   if (pathname.startsWith('/section/')) return (pathname.split('/')[2] as SectionId) || 'recherche'
   if (pathname.startsWith('/graphiques') || pathname === '/arbre' || pathname.startsWith('/chronologie')) return 'graphiques'
   if (pathname.startsWith('/vues') || pathname.startsWith('/carte')) return 'vues'

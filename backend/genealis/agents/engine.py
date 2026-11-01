@@ -97,39 +97,120 @@ def recover_interrupted(db: Session) -> int:
 
 
 # ------------------------------------------------------------------ agents
+def _domain(url: str | None) -> str | None:
+    from urllib.parse import urlparse
+
+    if not url:
+        return None
+    return (urlparse(url).netloc or "").lower().replace("www.", "") or None
+
+
+def searched_summary(q: SearchQuery) -> dict:
+    """Ce qui a été cherché, en clair (nom, années, commune)."""
+    return {"name": " ".join(x for x in (q.given_names, (q.surname or "").upper()) if x) or None,
+            "years": (f"{q.year_from or '?'}–{q.year_to or '?'}" if (q.year_from or q.year_to) else None),
+            "commune": q.commune, "department": q.department, "register_type": q.register_type}
+
+
+def compact_result(r: SearchResult) -> dict:
+    return {"title": r.title, "url": r.url, "snippet": r.snippet, "year": r.year, "date_text": r.date_text, "place": r.place,
+            "reliability": r.reliability, "connector_id": r.connector_id, "record_type": r.record_type,
+            "repository": r.repository}
+
+
+def step_context(c, q: SearchQuery) -> dict:
+    try:
+        verify = c.browse_url(q)
+    except Exception:  # pragma: no cover - modèle d'URL invalide
+        verify = c.capabilities.homepage
+    return {"verify_url": verify, "browse_url": verify, "site": _domain(c.capabilities.homepage),
+            "homepage": c.capabilities.homepage, "connector_name": c.capabilities.name,
+            "access_mode": c.capabilities.access_mode, "searched": searched_summary(q)}
+
+
 class ResearcherAgent:
     name = "chercheur"
 
     async def run_step(self, db: Session, task: ResearchTask, step: dict) -> list[SearchResult]:
+        """Exécute une recherche réelle et en garde une trace complète et vérifiable (jamais simulée)."""
+        import time
+
         cid = step.get("connector_id")
         c = registry.get(cid) if cid else None
         if not c:
             step["status"] = "skipped"
+            step["result"] = {"status": "error", "count": 0, "results": [],
+                              "message": f"Le connecteur « {cid} » n'est plus disponible : cette recherche n'a pas été effectuée."}
             return []
         q = SearchQuery(**{k: v for k, v in (step.get("query") or {}).items() if k in SearchQuery.__dataclass_fields__})
-        log(db, f"Recherche dans {c.capabilities.name} : {q.surname or ''} {q.given_names or ''} "
+        ctx = step_context(c, q)
+        started = utcnow()
+        t0 = time.monotonic()
+        name = c.capabilities.name
+
+        def timing() -> dict:
+            return {"started_at": started.isoformat(), "finished_at": utcnow().isoformat(),
+                    "duration_ms": int((time.monotonic() - t0) * 1000)}
+
+        log(db, f"Recherche dans {name} : {q.surname or ''} {q.given_names or ''} "
                 f"{q.year_from or ''}-{q.year_to or ''} {q.commune or ''}".strip(),
-            category="search", task_id=task.id, person_id=task.person_id, connector_id=cid, query=q.to_dict())
+            category="search", task_id=task.id, person_id=task.person_id, connector_id=cid, query=q.to_dict(),
+            outcome={"verify_url": ctx["verify_url"], "site": ctx["site"]})
         db.commit()
         try:
             results = await c.search(q)
         except AccessRestricted as exc:
             step["status"] = "manual"
-            step["result"] = {"error": str(exc), "browse_url": c.browse_url(q)}
-            log(db, f"{c.capabilities.name} : accès automatisé impossible — consultation manuelle proposée.",
+            step["result"] = {**ctx, **timing(), "status": "restricted", "count": 0, "results": [], "error": str(exc),
+                              "message": f"{name} n'autorise pas (ou plus) la consultation automatique : rien n'a été lu sur ce site. "
+                                         "Utilisez « Refaire cette recherche moi-même » pour consulter le site."}
+            log(db, f"{name} : accès automatisé impossible — consultation manuelle proposée.",
                 category="connector", level="warning", task_id=task.id, person_id=task.person_id, connector_id=cid,
-                outcome={"browse_url": c.browse_url(q)})
+                outcome={"status": "restricted", "count": 0, "verify_url": ctx["verify_url"], "browse_url": ctx["verify_url"],
+                         "site": ctx["site"], "error": str(exc)})
             return []
         except Exception as exc:
             step["status"] = "failed"
-            step["result"] = {"error": str(exc)}
-            log(db, f"{c.capabilities.name} : échec ({exc}).", category="error", level="error", task_id=task.id,
-                person_id=task.person_id, connector_id=cid)
+            technical = str(exc.__cause__ or exc)[:500]
+            step["result"] = {**ctx, **timing(), "status": "error", "count": 0, "results": [], "error": technical,
+                              "message": f"{name} n'a pas pu être interrogé : {exc}. Aucun résultat n'a été obtenu de ce site."}
+            log(db, f"{name} : échec ({exc}).", category="error", level="error", task_id=task.id,
+                person_id=task.person_id, connector_id=cid,
+                outcome={"status": "error", "count": 0, "verify_url": ctx["verify_url"], "site": ctx["site"], "error": technical})
             return []
+        grounding = getattr(results, "grounding", None)
+        n = len(results)
+        res: dict[str, Any] = {**ctx, **timing(), "status": "ok" if n else "no_result", "count": n,
+                               "results": [compact_result(r) for r in results[:50]],
+                               "message": (f"{n} résultat(s) trouvé(s) sur {name}." if n else
+                                           f"{name} a bien été interrogé mais n'a renvoyé aucun résultat pour cette recherche.")}
+        outcome: dict[str, Any] = {"status": res["status"], "count": n, "verify_url": ctx["verify_url"], "site": ctx["site"],
+                                   "sources": sorted({d for d in (_domain(r.url) for r in results) if d})}
+        if grounding is not None:
+            from urllib.parse import quote_plus
+
+            g = dict(grounding)
+            res["grounding"] = g
+            nsrc = len(g.get("sources") or [])
+            if g.get("queries"):
+                res["verify_url"] = "https://www.google.com/search?q=" + quote_plus(str(g["queries"][0]))
+                outcome["verify_url"] = res["verify_url"]
+            outcome["sources"] = sorted({s.get("domain") for s in g.get("sources") or [] if s.get("domain")})
+            outcome["queries"] = list(g.get("queries") or [])[:10]
+            if g.get("parse_error"):
+                res["status"] = "error" if not n else "ok"
+                res["message"] = f"Gemini a consulté {nsrc} page(s) mais sa réponse n'était pas exploitable. {g['parse_error']}"
+            elif not nsrc:
+                res["status"] = "no_result" if not n else res["status"]
+                res["message"] = "Gemini a répondu sans consulter aucune page web : aucune piste ne peut être vérifiée."
+            else:
+                notes = len(g.get("notes") or [])
+                res["message"] = (f"Gemini a lancé {len(g.get('queries') or [])} recherche(s) Google et consulté {nsrc} page(s) : "
+                                  f"{n} piste(s) rattachée(s) à une page" + (f", {notes} indication(s) sans page vérifiable (non retenues)" if notes else "") + ".")
         step["status"] = "done"
-        step["result"] = {"count": len(results), "results": [r.to_dict() for r in results[:50]]}
-        log(db, f"{c.capabilities.name} : {len(results)} résultat(s).", category="result", task_id=task.id,
-            person_id=task.person_id, connector_id=cid, outcome={"count": len(results)})
+        step["result"] = res
+        log(db, f"{name} : {n} résultat(s)." + (f" Pages consultées : {', '.join(outcome['sources'][:6])}." if grounding and outcome["sources"] else ""),
+            category="result", task_id=task.id, person_id=task.person_id, connector_id=cid, outcome=outcome)
         return results
 
 
@@ -242,12 +323,20 @@ class CoordinatorAgent:
         manual_steps = []
         for step in plan:
             if step["action"] == "search":
+                step["status"] = "running"
+                task.plan = [dict(s) for s in plan]
                 all_results.extend(await self.researcher.run_step(db, task, step))
             elif step["action"] == "browse":
                 c = registry.get(step["connector_id"])
                 q = SearchQuery(**{k: v for k, v in (step.get("query") or {}).items() if k in SearchQuery.__dataclass_fields__})
                 step["status"] = "manual"
-                step["result"] = {"browse_url": c.browse_url(q) if c else None}
+                if c:
+                    ctx = step_context(c, q)
+                    step["result"] = {**ctx, "status": "manual", "count": 0, "results": [],
+                                      "message": f"{c.capabilities.name} ne permet pas la recherche automatique : l'IA n'a rien consulté ici. "
+                                                 "Ouvrez le lien pour chercher vous-même, puis importez l'acte trouvé."}
+                else:
+                    step["result"] = {"browse_url": None, "status": "error", "message": "Service d'archives inconnu."}
                 manual_steps.append(step)
             elif step["action"] == "ask":
                 step["status"] = "done"
@@ -381,7 +470,10 @@ class CoordinatorAgent:
                                                   place=cand.get("death_place"), confidence="orange"))
             db.add(Citation(source_id=src.id, target_type="event", target_id=ev.id, confidence="orange"))
         db.flush()
-        log(db, f"Source enregistrée : {src.title}", category="decision", task_id=task.id, person_id=person.id)
+        log(db, f"Source enregistrée : {src.title}", category="decision", task_id=task.id, person_id=person.id,
+            outcome={"source_id": src.id, "url": src.url})
+        if isinstance(task.result, dict):
+            task.result = {**task.result, "sources_recorded": int(task.result.get("sources_recorded") or 0) + 1}
         if src.url and cfg.get(db, "auto_archive", True):
             from ..services.web_archive import ArchiveRefused, archive_url
 

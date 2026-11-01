@@ -83,6 +83,7 @@ class PersonSummary(BaseModel):
     age_display: Optional[str] = None  # « 82 ans » ou « ≈ 82 ans »
     age_detail: Optional[str] = None  # « 82 a 5 m 12 j » si dates exactes
     age_context: Optional[str] = None  # « au décès » | « aujourd'hui »
+    sosa: list[int] = Field(default_factory=list)  # numéros Sosa par rapport à la personne de départ (vide si hors ascendance)
 
 
 class RelativeIn(BaseModel):

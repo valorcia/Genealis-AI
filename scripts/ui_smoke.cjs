@@ -8,7 +8,8 @@ const routes = ['/', '/demarrer', '/section/recherche', '/section/editer', '/sec
   '/graphiques/liens', '/graphiques/sociogramme', '/graphiques/circulaire', '/graphiques/genogramme', '/carte', '/vues/arbre-virtuel', '/vues/globe',
   '/vues/cartes-statistiques', '/vues/quiz', '/rapports/synthese-personnelle', '/rapports/ascendance', '/rapports/chronique', '/rapports/etat-de-la-base',
   '/histoire', '/listes/personnes', '/listes/familles', '/listes/medias', '/listes/anniversaires', '/publication/site', '/publication/supprimer-sous-arbre',
-  '/enquetes', '/archives', '/questions', '/assistant', '/parametres', '/bienvenue']
+  '/enquetes', '/archives', '/questions', '/assistant', '/parametres', '/bienvenue', '/section/livre', '/livre', '/livre/personne',
+  '/livre/metiers', '/livre/villages', '/livre/a-trouver', '/documents/importer', '/sources-consultees', '/archives?tab=sources']
 ;(async () => {
   const browser = await chromium.launch()
   const mobile = process.env.MOBILE === '1'
@@ -25,7 +26,10 @@ const routes = ['/', '/demarrer', '/section/recherche', '/section/editer', '/sec
     if (f) { await f.fill(process.env.GENEALIS_PASSWORD); await page.click('button:has-text("Entrer")'); await page.waitForTimeout(1500); console.log('connexion : ok') }
   }
   const persons = await (await page.request.get(`${base}/api/persons`, { headers: process.env.GENEALIS_PASSWORD ? { 'X-Genealis-Token': process.env.GENEALIS_PASSWORD } : {} })).json()
-  if (persons.length) routes.push(`/personnes/${persons[0].id}`)
+  if (persons.length) routes.push(`/personnes/${persons[0].id}`, `/livre/personne/${persons[0].id}`)
+  const tasks = await (await page.request.get(`${base}/api/trace/tasks`, { headers: process.env.GENEALIS_PASSWORD ? { 'X-Genealis-Token': process.env.GENEALIS_PASSWORD } : {} })).json().catch(() => [])
+  const tlist = Array.isArray(tasks) ? tasks : (tasks.tasks || tasks.items || [])
+  if (tlist.length) routes.push(`/enquetes/${tlist[0].id}`)
   let bad = 0
   for (const r of routes) {
     current = r

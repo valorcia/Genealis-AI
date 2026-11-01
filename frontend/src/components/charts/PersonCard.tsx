@@ -31,6 +31,9 @@ export const PersonCard = memo(function PersonCard({
   onClick?: (p: PersonSummary) => void; className?: string; style?: CSSProperties
 }) {
   const { w, h } = cardSize(variant, opts)
+  // Numéro Sosa : celui fourni par le graphique, sinon celui de la personne (affiché dès qu'elle est dans l'ascendance).
+  const sosaNum = sosa ?? (person.sosa && person.sosa.length ? Math.min(...person.sosa) : null)
+  const showSosa = sosaNum != null && (opts.showSosa || (person.sosa?.length ?? 0) > 0)
   const birth = birthText(person), death = deathText(person), age = deathAge(person)
   const border = root ? 'border-[3px] border-[#7d828f]' : selected ? 'border-2 border-[#2f6fd1]' : 'border border-black/10'
   const base = `group relative flex flex-col overflow-hidden text-left text-night-900 shadow-[0_6px_16px_-8px_rgba(25,35,70,0.35)] transition-transform ${onClick ? 'cursor-pointer hover:-translate-y-0.5' : ''} ${border} ${className}`
@@ -42,7 +45,7 @@ export const PersonCard = memo(function PersonCard({
           <div className="truncate text-[13px] font-semibold">{fullName(person)}</div>
           <div className="truncate text-[11px] text-mist-500">{compactDates(person, birth, death)}</div>
         </div>
-        {sosa != null && opts.showSosa && <span className="absolute right-1.5 top-1 text-[9px] font-semibold tabular-nums text-mist-400">{sosa}</span>}
+        {showSosa && <span className="absolute right-1.5 top-1 rounded-full bg-brass-200/70 px-1 text-[9px] font-semibold tabular-nums text-brass-600" title={`Sosa ${sosaNum}`}>{sosaNum}</span>}
       </div>
     )
   }
@@ -56,7 +59,7 @@ export const PersonCard = memo(function PersonCard({
         <Row label="Naissance" date={birth} place={opts.showPlaces ? person.birth_place : null} />
         {(death || person.death_place || person.is_living === false) && <Row label="Décès" date={death ? `${death}${age ? ` (${age})` : ''}` : null} place={opts.showPlaces ? person.death_place : null} />}
       </div>
-      {sosa != null && opts.showSosa && <span className="absolute bottom-1 left-2 rounded-full bg-black/5 px-1.5 text-[9px] font-semibold tabular-nums text-mist-500">Sosa {sosa}</span>}
+      {showSosa && <span className="absolute bottom-1 left-2 rounded-full bg-brass-200/70 px-1.5 text-[9px] font-semibold tabular-nums text-brass-600">Sosa {sosaNum}</span>}
     </div>
   )
 })

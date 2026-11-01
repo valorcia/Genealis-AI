@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ClipboardCopy, Download, ExternalLink, FileSearch, FileText, Save, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, ClipboardCopy, Download, ExternalLink, FileSearch, FileText, Save, Sparkles, Trash2, Upload, X } from 'lucide-react'
 import { api, openExternal, type MediaOut, type PersonSummary } from '../../api'
 import { useApp } from '../../store'
 import { Empty, Field, Spinner, formatDate } from '../ui'
@@ -135,7 +135,8 @@ function MediaDetail({ id, persons, onClose, onChanged }: { id: string; persons:
           </div>
         </div>
         <div className="flex flex-wrap gap-1">
-          <button className="btn-gold !py-1" disabled={busy !== null} onClick={() => act('an', () => api.analyzeMedia(m.id), 'Analyse lancée : suivez-la dans Enquêtes IA.')}>{busy === 'an' ? <Spinner /> : <FileSearch size={14} />}Analyser</button>
+          <Link className="btn-gold !py-1" to={`/documents/importer?media=${m.id}`} title="Lire le document et proposer les ajouts à l’arbre, à valider"><Sparkles size={14} />Interpréter ce document</Link>
+          <button className="btn-ghost !py-1" disabled={busy !== null} onClick={() => act('an', () => api.analyzeMedia(m.id), 'Analyse lancée : suivez-la dans Enquêtes IA.')}>{busy === 'an' ? <Spinner /> : <FileSearch size={14} />}Analyser</button>
           <button className="btn-danger !py-1" onClick={del}><Trash2 size={14} /></button>
           <button className="btn-ghost !p-1.5" onClick={onClose}><X size={15} /></button>
         </div>
@@ -229,7 +230,11 @@ export function DocumentsTab({ selectedId, onSelect }: { selectedId: string | nu
     <div className="space-y-4">
       {selectedId && <MediaDetail id={selectedId} persons={persons} onClose={() => onSelect(null)} onChanged={load} />}
       <section className="panel fade-up p-5">
-        <h2 className="mb-3 font-display text-xl text-night-900">Importer des documents</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-xl text-night-900">Importer des documents</h2>
+          <Link className="btn-gold" to="/documents/importer"><Sparkles size={15} />Importer et interpréter (guidé)</Link>
+        </div>
+        <p className="mb-3 text-sm text-mist-500">Le parcours guidé lit l’acte, le recensement ou le registre avec l’IA et vous propose les personnes, dates et liens à ajouter, que vous validez.</p>
         <div onDragOver={(e) => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)} onDrop={onDrop}
           className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${drag ? 'border-gold-500 bg-gold-500/10' : 'border-ivory-300 bg-ivory-100/50'}`}>
           <Upload size={28} strokeWidth={1.4} className="text-gold-600" />

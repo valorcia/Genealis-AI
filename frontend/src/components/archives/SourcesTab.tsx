@@ -113,8 +113,8 @@ export function SourcesTab({ selectedId, onSelect }: { selectedId: string | null
     api.source(selectedId).then(setSelected).catch((e: unknown) => { notify('error', errMsg(e)); onSelect(null) })
   }, [selectedId, sources, notify, onSelect])
   return (
-    <div className={`grid gap-4 ${selected ? 'xl:grid-cols-[1fr_380px]' : ''}`}>
-      <section className="panel fade-up p-5">
+    <div className={`grid grid-cols-1 gap-4 ${selected ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}>
+      <section className="panel fade-up min-w-0 p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 className="font-display text-xl text-night-900">Sources</h2>
           <span className="text-xs text-mist-500">{sources?.length ?? 0} source(s)</span>

@@ -147,3 +147,15 @@ def test_sosa_ignore_les_beaux_parents(db):
     assert sosa[f["mgf"].id] == [6]  # père de la mère
     txt = person_narrative(db, f["me"])["paragraphs"][1]["text"]
     assert "Pierre DURANT et de Anna ROSSI." in txt and "beau-parent" in txt
+
+
+def test_numeros_sosa_de_la_base(db):
+    from genealis.services.sosa import generation_of, sosa_map
+
+    f = build_fictional_family(db)
+    m = sosa_map(db)
+    assert m[f["me"].id] == [1] and m[f["father"].id] == [2] and m[f["mother"].id] == [3]
+    assert m[f["gf"].id] == [4] and m[f["gm"].id] == [5] and m[f["mgf"].id] == [6]
+    assert f["step"].id not in m and f["homonym"].id not in m
+    assert generation_of(6) == 3
+    assert person_summary(db, f["gf"], m).sosa == [4]

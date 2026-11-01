@@ -1,53 +1,17 @@
 import { useRef, type ReactNode } from 'react'
-import { Star } from 'lucide-react'
-import { ICONS } from '../../navigation/icons'
+import { ArrowUpRight, ChevronRight, Star } from 'lucide-react'
 import type { Tile } from '../../navigation/sections'
 import type { Dashboard } from '../../api'
+import { Medallion } from '../brand/Brand'
+import { ICONS } from '../../navigation/icons'
 
 /**
- * Éléments visuels des pages de catégorie (style MacFamilyTree) : grand titre coloré,
- * grilles de tuiles blanches (grandes « vedettes » puis petites), icônes en dégradé de la couleur.
+ * Éléments des pages de chapitre GENEALIS (style « archive ») :
+ *  - FeatureCard : carte vedette (la première, « héros », est large avec un décor de cernes d'arbre) ;
+ *  - IndexList / IndexRow : les autres outils présentés comme une table des matières ;
+ *  - tileCount : libellé du compteur affiché sur une tuile.
+ * Appui long (ou clic droit, ou ☆) sur une carte : ajout/retrait des favoris.
  */
-
-function mixWithWhite(hex: string, amount: number) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex)
-  if (!m) return hex
-  const n = parseInt(m[1], 16)
-  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => Math.round(c + (255 - c) * amount))
-  return `#${ch.map((c) => c.toString(16).padStart(2, '0')).join('')}`
-}
-function gradId(color: string) { return `hub-grad-${color.replace(/[^0-9a-z]/gi, '')}` }
-
-/** Dégradés SVG partagés (un par couleur) utilisés pour le trait des icônes de tuiles. */
-export function TileGradients({ colors }: { colors: string[] }) {
-  return (
-    <svg aria-hidden width="0" height="0" className="absolute">
-      <defs>
-        {[...new Set(colors)].map((c) => (
-          <linearGradient key={c} id={gradId(c)} gradientUnits="userSpaceOnUse" x1="0" y1="1" x2="0" y2="23">
-            <stop offset="0" stopColor={mixWithWhite(c, 0.32)} />
-            <stop offset="1" stopColor={c} />
-          </linearGradient>
-        ))}
-      </defs>
-    </svg>
-  )
-}
-
-export function HubTitle({ title, color, children }: { title: string; color: string; children?: ReactNode }) {
-  const factor = Math.max(3.2, title.length * 0.6).toFixed(2)
-  return (
-    <div className="fade-up px-2 pb-5 pt-5 text-center sm:pb-9 sm:pt-10">
-      <h1
-        className="font-display mx-auto font-bold leading-[1.02] tracking-[-0.035em] [--hub-title-max:74px] sm:[--hub-title-max:96px]"
-        style={{ color, fontWeight: 700, fontSize: `clamp(34px, calc((100vw - 48px) / ${factor}), var(--hub-title-max))`, textShadow: '0 1px 0 rgba(255,255,255,0.6)' }}
-      >
-        {title}
-      </h1>
-      {children}
-    </div>
-  )
-}
 
 /** Libellé de compteur (« 4 personnes », « 1 personne »), ou null si la donnée n'existe pas. */
 export function tileCount(tile: Tile, dashboard: Dashboard | null): string | null {
@@ -59,71 +23,157 @@ export function tileCount(tile: Tile, dashboard: Dashboard | null): string | nul
   return `${v.toLocaleString('fr-FR')}${label ? ` ${label}` : ''}`
 }
 
-export function HubTile({ tile, color, big, count, favorite, onOpen, onToggleFavorite, delay = 0 }: {
-  tile: Tile; color: string; big: boolean; count?: string | null; favorite: boolean
-  onOpen: () => void; onToggleFavorite: () => void; delay?: number
-}) {
+/** Gestion clic / appui long (favori) commune aux cartes. */
+function usePress(onOpen: () => void, onToggleFavorite: () => void) {
   const timer = useRef<number | null>(null)
   const start = useRef<{ x: number; y: number } | null>(null)
   const longPressed = useRef(false)
-  const Icon = ICONS[tile.icon] ?? Star
   const clear = () => { if (timer.current !== null) { window.clearTimeout(timer.current); timer.current = null } }
-  const soft = `color-mix(in srgb, ${color} 52%, #a3a9b6)`
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      longPressed.current = false
+      start.current = { x: e.clientX, y: e.clientY }
+      clear()
+      timer.current = window.setTimeout(() => { longPressed.current = true; navigator.vibrate?.(12); onToggleFavorite() }, 520)
+    },
+    onPointerMove: (e: React.PointerEvent) => { if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) clear() },
+    onPointerUp: clear,
+    onPointerLeave: clear,
+    onPointerCancel: clear,
+    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); if (!longPressed.current) { clear(); onToggleFavorite() } },
+    onClick: (e: React.MouseEvent) => { if (longPressed.current) { e.preventDefault(); longPressed.current = false; return } onOpen() },
+  }
+}
+
+function FavoriteToggle({ label, favorite, onToggle, className = '', light = false }: { label: string; favorite: boolean; onToggle: () => void; className?: string; light?: boolean }) {
   return (
-    <div className={`tile tile-in group ${TILE_WIDTH}`} style={{ background: `linear-gradient(180deg, #ffffff 52%, color-mix(in srgb, ${color} 6%, white) 100%)`, animationDelay: `${delay}ms` }}>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={favorite}
+      aria-label={favorite ? `Retirer « ${label} » des favoris` : `Ajouter « ${label} » aux favoris`}
+      title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+      className={`z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-[opacity,transform,background-color] duration-200 active:scale-90 ${light ? 'hover:bg-white/15' : 'hover:bg-black/[0.05]'} ${favorite ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-80'} ${className}`}
+      style={{ color: favorite ? (light ? '#ecd9a6' : 'var(--color-brass-500)') : light ? 'rgba(255,253,248,0.75)' : 'var(--color-mist-400)' }}
+    >
+      <Star size={15} strokeWidth={2} className={favorite ? 'fill-current' : ''} />
+    </button>
+  )
+}
+
+/** Décor « cernes d'arbre » (anneaux excentrés) pour les cartes héros. */
+export function TreeRings({ color, className = '' }: { color: string; className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 200 200" className={`pointer-events-none ${className}`} fill="none" stroke={color}>
+      {[92, 78, 64, 51, 39, 28, 18, 9].map((r, i) => (
+        <circle key={r} cx={100 - i * 2.2} cy={100 + i * 1.6} r={r} strokeWidth={i % 3 === 0 ? 1.4 : 0.8} opacity={0.18 + i * 0.05} />
+      ))}
+    </svg>
+  )
+}
+
+export function FeatureCard({ tile, color, tint, hero = false, ai = false, eyebrow, count, favorite, onOpen, onToggleFavorite, delay = 0, className = '' }: {
+  tile: Tile; color: string; tint: string; hero?: boolean; ai?: boolean; eyebrow?: string; count?: string | null; favorite: boolean
+  onOpen: () => void; onToggleFavorite: () => void; delay?: number; className?: string
+}) {
+  const press = usePress(onOpen, onToggleFavorite)
+  const dark = hero && ai
+  const HeroIcon = ICONS[tile.icon] ?? Star
+  const background = dark
+    ? `radial-gradient(120% 140% at 100% 0%, #7d63f0 0%, #5b3fd6 42%, #3a2596 100%)`
+    : hero
+      ? `linear-gradient(125deg, var(--color-ivory-50) 0%, var(--color-ivory-50) 35%, ${tint} 100%)`
+      : `linear-gradient(180deg, var(--color-ivory-50) 55%, color-mix(in srgb, ${tint} 60%, var(--color-ivory-50)) 100%)`
+  return (
+    <div className={`tile tile-in group @container overflow-hidden ${hero ? 'min-h-[156px] sm:min-h-[184px]' : ''} ${className}`} style={{ background, animationDelay: `${delay}ms`, ...(dark ? { borderColor: 'rgba(255,255,255,0.12)' } : {}) }}>
+      {hero && <TreeRings color={dark ? '#ffffff' : color} className={`absolute -bottom-20 -right-16 h-[230px] w-[230px] sm:-bottom-24 sm:right-[-30px] sm:h-[300px] sm:w-[300px] ${dark ? 'opacity-40' : 'opacity-55'}`} />}
+      {!hero && <span aria-hidden className="absolute bottom-3 right-3 h-[7px] w-[7px] rotate-45 opacity-50" style={{ border: `1px solid ${color}` }} />}
       <button
         type="button"
         aria-label={count ? `${tile.label}, ${count}` : tile.label}
         title={tile.description ?? tile.label}
-        className={`flex w-full flex-1 flex-col items-center rounded-[inherit] text-center focus-visible:outline-none ${big ? 'aspect-square justify-center gap-1 px-1 pb-3 pt-3 sm:gap-2 sm:px-2 sm:pb-5 sm:pt-6' : 'aspect-square justify-center gap-1 px-1 pb-2.5 pt-2.5 sm:gap-1.5 sm:pb-4 sm:pt-5'}`}
-        onPointerDown={(e) => {
-          longPressed.current = false
-          start.current = { x: e.clientX, y: e.clientY }
-          clear()
-          timer.current = window.setTimeout(() => { longPressed.current = true; navigator.vibrate?.(12); onToggleFavorite() }, 520)
-        }}
-        onPointerMove={(e) => { if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) clear() }}
-        onPointerUp={clear}
-        onPointerLeave={clear}
-        onPointerCancel={clear}
-        onContextMenu={(e) => { e.preventDefault(); if (!longPressed.current) { clear(); onToggleFavorite() } }}
-        onClick={(e) => { if (longPressed.current) { e.preventDefault(); longPressed.current = false; return } onOpen() }}
+        className={`relative flex w-full flex-1 rounded-[inherit] text-left focus-visible:outline-none ${hero ? 'flex-col justify-between gap-4 p-4 pr-12 sm:p-6 sm:pr-14 @[30rem]:flex-row @[30rem]:items-center @[30rem]:justify-start @[30rem]:gap-5' : 'min-h-[132px] flex-col gap-3 p-3.5 pr-10 sm:min-h-[150px] sm:p-4 sm:pr-11 @[22rem]:min-h-[92px] @[22rem]:flex-row @[22rem]:items-center'}`}
+        {...press}
       >
-        <span className="flex min-h-0 flex-1 items-center justify-center" style={{ filter: `drop-shadow(0 3px 6px color-mix(in srgb, ${color} 22%, transparent))` }}>
-          <Icon
-            color={`url(#${gradId(color)})`}
-            fill={`url(#${gradId(color)})`}
-            fillOpacity={0.13}
-            strokeWidth={big ? 1.6 : 1.75}
-            className={big ? 'h-[48px] w-[48px] sm:h-[72px] sm:w-[72px]' : 'h-[32px] w-[32px] sm:h-[46px] sm:w-[46px]'}
-          />
+        {dark
+          ? <span aria-hidden className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/35 shadow-[0_0_0_6px_rgba(255,255,255,0.06)]"><HeroIcon size={28} strokeWidth={1.6} fill="currentColor" fillOpacity={0.18} /></span>
+          : <Medallion icon={tile.icon} color={color} size={hero ? 58 : 44} solid={hero} />}
+        <span className="flex min-w-0 flex-1 flex-col">
+          {eyebrow && <span className="eyebrow mb-1 !text-[10px]" style={{ color }}>{eyebrow}</span>}
+          <span className={`font-display block leading-[1.12] ${hero ? 'text-[22px] sm:text-[27px]' : 'text-[16px] sm:text-[18px]'} ${dark ? 'text-white' : 'text-night-900'}`} style={{ fontWeight: hero ? 540 : 560 }}>{tile.label}</span>
+          {tile.description && <span className={`mt-1 block leading-snug ${hero ? 'max-w-md text-[13.5px] sm:text-[15px]' : 'line-clamp-2 text-[12.5px] sm:text-[13px]'} ${dark ? 'text-white/80' : 'text-mist-500'}`}>{tile.description}</span>}
+          {count && (
+            <span className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-[3px] text-[12px] font-semibold leading-none ${dark ? 'bg-white/15 text-white' : ''}`} style={dark ? undefined : { color, background: `color-mix(in srgb, ${color} 9%, transparent)` }}>
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: dark ? '#fff' : color }} />{count}
+            </span>
+          )}
+          {hero && (
+            <span className={`mt-3 inline-flex items-center gap-1 text-[13px] font-semibold ${dark ? 'text-white' : ''}`} style={dark ? undefined : { color }}>
+              Ouvrir <ArrowUpRight size={15} strokeWidth={2.2} className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </span>
+          )}
         </span>
-        <span className={`block w-full shrink-0 break-words leading-[1.18] ${big ? 'text-[14.5px] font-medium sm:text-[18px]' : 'text-[11px] font-medium sm:text-[13.5px]'}`} style={{ color }}>
-          {tile.label}
-        </span>
-        {count && <span className={`block w-full shrink-0 truncate leading-tight ${big ? 'text-[12.5px] sm:text-[14px]' : 'text-[10.5px] sm:text-[12px]'}`} style={{ color: soft }}>{count}</span>}
       </button>
-      <button
-        type="button"
-        onClick={onToggleFavorite}
-        aria-pressed={favorite}
-        aria-label={favorite ? `Retirer « ${tile.label} » des favoris` : `Ajouter « ${tile.label} » aux favoris`}
-        title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-        className={`absolute z-10 inline-flex items-center justify-center rounded-full transition-[opacity,transform] duration-200 hover:bg-black/[0.05] active:scale-90 ${big ? 'right-1.5 top-1.5 h-7 w-7 sm:right-2.5 sm:top-2.5' : 'right-0.5 top-0.5 h-6 w-6 sm:right-1.5 sm:top-1.5'} ${favorite ? 'opacity-75' : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-70'}`}
-        style={{ color: favorite ? '#f5a623' : '#a3a9b6' }}
-      >
-        <Star size={big ? 13 : 11} strokeWidth={2.2} className={favorite ? 'fill-current' : ''} />
-      </button>
+      <FavoriteToggle label={tile.label} favorite={favorite} onToggle={onToggleFavorite} light={dark} className="absolute right-1.5 top-1.5 sm:right-2.5 sm:top-2.5" />
     </div>
   )
 }
 
-/** Grille centrée façon MacFamilyTree : les rangées incomplètes sont centrées. */
-export function TileRow({ kind, children }: { kind: 'big' | 'small'; children: ReactNode }) {
+/** Disposition des cartes vedettes : la première est large (héros), la dernière s'étire pour compléter la rangée. */
+export function featureSpan(index: number, total: number): string {
+  if (index === 0) return 'col-span-2'
+  if (index !== total - 1) return ''
+  const phone = (total - 1) % 2 === 1 ? 'col-span-2' : ''
+  const rest = (total - 2) % 3
+  const lg = rest === 1 ? 'lg:col-span-3' : rest === 2 ? 'lg:col-span-2' : phone ? 'lg:col-span-1' : ''
+  return `${phone} ${lg}`.trim()
+}
+
+export function FeatureGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3">{children}</div>
+}
+
+/** Intitulé de groupe : capitales espacées et filet. */
+export function GroupLabel({ children, color, className = '' }: { children: ReactNode; color?: string; className?: string }) {
   return (
-    <div className={`flex flex-wrap justify-center gap-[var(--g)] [--g:10px] sm:[--g:16px] ${kind === 'big' ? '[--n:3] sm:[--n:5]' : '[--n:4] sm:[--n:6]'}`}>
-      {children}
+    <h2 className={`eyebrow flex items-center gap-3 text-mist-500 ${className}`} style={color ? { color } : undefined}>
+      <span className="shrink-0">{children}</span>
+      <span aria-hidden className="h-px flex-1 bg-[var(--hairline)]" />
+    </h2>
+  )
+}
+
+/** Table des matières : liste des autres outils d'un chapitre, dans une seule feuille de papier. */
+export function IndexList({ children }: { children: ReactNode }) {
+  return (
+    <div className="paper overflow-hidden px-1.5 py-1 sm:px-3 sm:py-2">
+      <ul className="grid sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3">{children}</ul>
     </div>
   )
 }
-const TILE_WIDTH = 'w-[calc((100%_-_(var(--n)_-_1)_*_var(--g))_/_var(--n))]'
+
+export function IndexRow({ tile, color, count, favorite, onOpen, onToggleFavorite, delay = 0 }: {
+  tile: Tile; color: string; count?: string | null; favorite: boolean; onOpen: () => void; onToggleFavorite: () => void; delay?: number
+}) {
+  const press = usePress(onOpen, onToggleFavorite)
+  return (
+    <li className="tile-in group relative border-b border-[var(--hairline)] last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 lg:[&:nth-last-child(-n+3)]:border-b-0" style={{ animationDelay: `${delay}ms` }}>
+      <button
+        type="button"
+        aria-label={count ? `${tile.label}, ${count}` : tile.label}
+        title={tile.description ?? tile.label}
+        className="flex w-full select-none items-center gap-3 rounded-xl px-2 py-2.5 pr-[60px] text-left transition-colors duration-150 [-webkit-touch-callout:none] hover:bg-black/[0.025] active:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ios-blue/25"
+        {...press}
+      >
+        <Medallion icon={tile.icon} color={color} size={36} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[14.5px] font-medium text-night-900">{tile.label}</span>
+          {count && <span className="block truncate text-[12px] text-mist-500">{count}</span>}
+        </span>
+        
+      </button>
+      <ChevronRight aria-hidden size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-mist-300 transition-transform group-hover:translate-x-0.5" />
+      <FavoriteToggle label={tile.label} favorite={favorite} onToggle={onToggleFavorite} className="absolute right-[26px] top-1/2 -translate-y-1/2" />
+    </li>
+  )
+}

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import utcnow, ConnectorStatus
-from . import france, free_sources, insee_local, international  # noqa: F401 - enregistre les connecteurs
+from . import france, free_sources, gemini_web, insee_local, international  # noqa: F401 - enregistre les connecteurs
 from .base import registry
 
 

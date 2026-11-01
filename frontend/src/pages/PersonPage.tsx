@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Camera, ChevronDown, ChevronUp, Crown, FileDown, FileSearch, GitFork, Lightbulb, Search, ShieldCheck, Sparkles, Trash2, UserPlus, Users } from 'lucide-react'
+import { BookOpen, Camera, ChevronDown, ChevronUp, Crown, FileDown, FileUp, FileSearch, GitFork, Lightbulb, Search, ShieldCheck, Sparkles, Trash2, UserPlus, Users } from 'lucide-react'
 import { api, openExternal, type Advice, type PersonDetail } from '../api'
 import { useApp, pulseEngine } from '../store'
 import { ConfidenceChip, Spinner } from '../components/ui'
@@ -59,7 +59,7 @@ export default function PersonPage() {
   const onAdd = (r: AddRequest) => { if (r === 'menu') setMenu(true); else setRelChoice(r) }
   const scrollTo = (anchor: string) => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  if (error) return <div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5"><p className="text-night-900">{error}</p><Link className="mt-3 inline-block font-medium text-[#2f6fd1]" to="/">Retour au centre de recherche</Link></div>
+  if (error) return <div className="mx-auto max-w-2xl rounded-3xl bg-ivory-50 p-6 text-center shadow-sm ring-1 ring-black/5"><p className="text-night-900">{error}</p><Link className="mt-3 inline-block font-medium text-ios-blue" to="/">Retour au centre de recherche</Link></div>
   if (!p) return <div className="flex items-center justify-center gap-2 p-10 text-mist-500"><Spinner /> Chargement de la fiche…</div>
 
   const criteria = p.confidence_details.criteria ?? []
@@ -88,15 +88,15 @@ export default function PersonPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-24">
       {/* En-tête */}
-      <header className="fade-up overflow-hidden rounded-3xl bg-white shadow-[0_1px_2px_rgba(20,40,80,0.06),0_10px_30px_-18px_rgba(20,40,80,0.35)] ring-1 ring-black/5">
+      <header className="fade-up overflow-hidden rounded-3xl bg-ivory-50 shadow-[0_1px_2px_rgba(20,40,80,0.06),0_10px_30px_-18px_rgba(20,40,80,0.35)] ring-1 ring-black/5">
         <div className="flex items-start gap-4 p-4 sm:p-5">
           <label className="group relative shrink-0 cursor-pointer" title="Changer le portrait">
             {p.portrait_media_id ? <Avatar p={p} size={88} /> : (
-              <span className={`flex h-[88px] w-[88px] items-center justify-center rounded-full ${p.sex === 'F' ? 'bg-[#fde3ee] text-[#b0336b]' : p.sex === 'M' ? 'bg-[#dfeafc] text-[#2f6fd1]' : 'bg-mist-200 text-mist-500'}`}>
+              <span className={`flex h-[88px] w-[88px] items-center justify-center rounded-full ${p.sex === 'F' ? 'bg-[#fde3ee] text-[#b0336b]' : p.sex === 'M' ? 'bg-[#dfeafc] text-ios-blue' : 'bg-mist-200 text-mist-500'}`}>
                 <svg viewBox="0 0 24 24" width="52" height="52" fill="currentColor" aria-hidden><circle cx="12" cy="8" r="4.2" /><path d="M3.5 21c0-4.4 3.8-7.4 8.5-7.4s8.5 3 8.5 7.4z" /></svg>
               </span>
             )}
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white text-mist-500 shadow ring-1 ring-black/10"><Camera size={14} /></span>
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-ivory-50 text-mist-500 shadow ring-1 ring-black/10"><Camera size={14} /></span>
             <input type="file" hidden accept="image/*" onChange={(e) => { setPortrait(e.target.files); e.target.value = '' }} />
           </label>
           <div className="min-w-0 flex-1">
@@ -112,9 +112,14 @@ export default function PersonPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-black/5 px-4 py-2.5 sm:px-5">
           <ConfidenceChip level={p.confidence} />
+          {(p.sosa?.length ?? 0) > 0 && <span className="chip border border-brass-300/70 bg-brass-200/50 font-semibold tabular-nums text-brass-600" title={`Numéro Sosa dans l’ascendance de la personne de départ — génération ${Math.floor(Math.log2(p.sosa![0])) + 1}`}>Sosa n° {p.sosa!.join(' · ')}</span>}
           {p.is_root && <span className="chip bg-[#fff4d6] text-[#8a6a10]"><Crown size={12} />Personne de départ</span>}
           {p.is_living && <span className="chip bg-[#e3f4e6] text-[#2f6b3b]"><ShieldCheck size={12} />Vivant{f} · protégé{f}</span>}
           <button className="inline-flex items-center gap-1 text-xs text-mist-500 underline" onClick={() => setWhy((v) => !v)}>Pourquoi ce niveau ? {why ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</button>
+        </div>
+        <div className="flex flex-wrap gap-2 px-4 pb-3 sm:px-5">
+          <Link to={`/livre/personne/${p.id}`} className="btn-ghost !px-3 !py-1.5 !text-[13px]"><BookOpen size={14} />Lire son chapitre</Link>
+          <Link to={`/documents/importer?personne=${p.id}`} className="btn-ghost !px-3 !py-1.5 !text-[13px]"><FileUp size={14} />Importer un acte</Link>
         </div>
         {why && <div className="mx-4 mb-3 rounded-2xl bg-mist-100 p-3 text-xs text-night-900 sm:mx-5">{criteria.length === 0 ? 'Aucun critère détaillé disponible.' : <ul className="list-disc pl-4">{criteria.map((c, i) => <li key={i}>{c}</li>)}</ul>}</div>}
 
@@ -123,7 +128,7 @@ export default function PersonPage() {
           <button onClick={() => setMenu(true)} className="btn-primary w-full justify-center !py-2.5 text-[15px]"><UserPlus size={17} />Ajouter des proches</button>
           <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
             {quick.filter((q) => q.show).map((q) => (
-              <button key={q.label} onClick={() => onAdd(q.req)} className="shrink-0 rounded-full bg-[#2f6fd1]/10 px-3 py-1.5 text-[13px] font-medium text-[#2f6fd1] hover:bg-[#2f6fd1]/20">+ {q.label}</button>
+              <button key={q.label} onClick={() => onAdd(q.req)} className="shrink-0 rounded-full bg-ios-blue/10 px-3 py-1.5 text-[13px] font-medium text-ios-blue hover:bg-ios-blue/20">+ {q.label}</button>
             ))}
           </div>
         </div>
@@ -134,7 +139,7 @@ export default function PersonPage() {
         <div className="mb-2.5 flex items-center gap-2 text-[15px] font-semibold" style={{ color: AI.dark }}><Sparkles size={17} />Recherche IA</div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {aiActions.map((a) => (
-            <button key={a.key} disabled={busy !== null} onClick={a.fn} className="flex min-h-[64px] flex-col items-start justify-between gap-1 rounded-2xl bg-white p-3 text-left text-[14px] font-medium shadow-sm ring-1 ring-[#5b3fd6]/10 hover:ring-[#5b3fd6]/40 disabled:opacity-60" style={{ color: AI.dark }}>
+            <button key={a.key} disabled={busy !== null} onClick={a.fn} className="flex min-h-[64px] flex-col items-start justify-between gap-1 rounded-2xl bg-ivory-50 p-3 text-left text-[14px] font-medium shadow-sm ring-1 ring-[#5b3fd6]/10 hover:ring-[#5b3fd6]/40 disabled:opacity-60" style={{ color: AI.dark }}>
               <span style={{ color: AI.color }}>{busy === a.key ? <Spinner /> : a.icon}</span>{a.label}
             </button>
           ))}
@@ -155,22 +160,22 @@ export default function PersonPage() {
       <HistorySection p={p} />
 
       <div className="grid grid-cols-2 gap-2">
-        <button className="btn-ghost justify-center bg-white" onClick={() => openExternal(api.personPdfUrl(id))}><FileDown size={15} />Fiche PDF</button>
-        <Link className="btn-ghost justify-center bg-white" to={`/arbre-interactif?personne=${id}`}><GitFork size={15} />Voir dans l’arbre</Link>
+        <button className="btn-ghost justify-center bg-ivory-50" onClick={() => openExternal(api.personPdfUrl(id))}><FileDown size={15} />Fiche PDF</button>
+        <Link className="btn-ghost justify-center bg-ivory-50" to={`/arbre-interactif?personne=${id}`}><GitFork size={15} />Voir dans l’arbre</Link>
       </div>
 
-      <section className="rounded-3xl bg-white p-4 ring-1 ring-conf-red/20">
+      <section className="rounded-3xl bg-ivory-50 p-4 ring-1 ring-conf-red/20">
         <h2 className="text-[15px] font-semibold text-conf-red">Zone de danger</h2>
         <p className="mt-1 text-xs text-mist-500">Efface la personne, ses événements et ses liens de parenté. Les sources et documents partagés sont conservés.</p>
         <button className="btn-danger mt-3" onClick={deletePerson}><Trash2 size={15} />Supprimer cette personne</button>
       </section>
 
       {/* Pastilles flottantes (comme MobileFamilyTree) */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[84px] z-30 flex justify-center px-3 lg:bottom-6">
-        <div className="pointer-events-auto flex gap-1 rounded-full bg-white/85 p-1 shadow-[0_8px_30px_-8px_rgba(20,40,80,0.45)] ring-1 ring-black/5 backdrop-blur-xl">
+      <div className="pointer-events-none fixed right-0 z-30 flex justify-center px-3" style={{ left: 'var(--rail-w)', bottom: 'calc(var(--dock-h) + 16px)' }}>
+        <div className="pointer-events-auto flex gap-1 rounded-full bg-ivory-50/85 p-1 shadow-[0_8px_30px_-8px_rgba(20,40,80,0.45)] ring-1 ring-black/5 backdrop-blur-xl">
           {[{ n: p.parents.length, l: 'Parents' }, { n: p.spouses.length, l: p.spouses.length > 1 ? 'Partenaires' : 'Partenaire' }, { n: p.children.length, l: 'Enfants' }].map((x) => (
-            <button key={x.l} onClick={() => scrollTo('famille')} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium text-[#2f6fd1] hover:bg-[#2f6fd1]/10">
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2f6fd1] px-1 text-[12px] font-semibold text-white">{x.n}</span>{x.l}
+            <button key={x.l} onClick={() => scrollTo('famille')} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium text-ios-blue hover:bg-ios-blue/10">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-ios-blue px-1 text-[12px] font-semibold text-white">{x.n}</span>{x.l}
             </button>
           ))}
         </div>
