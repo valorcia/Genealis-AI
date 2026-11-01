@@ -13,7 +13,7 @@ export function Panel({ title, children, actions, className = '' }: { title?: Re
     <section className={`panel p-5 fade-up ${className}`}>
       {(title || actions) && (
         <header className="mb-3 flex items-center justify-between gap-3">
-          {title && <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-night-900 sm:text-lg">{title}</h2>}
+          {title && <h2 className="font-display text-[19px] leading-tight text-night-900 sm:text-[21px]">{title}</h2>}
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
       )}
@@ -22,7 +22,7 @@ export function Panel({ title, children, actions, className = '' }: { title?: Re
   )
 }
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="rounded-2xl border border-dashed border-black/10 bg-white/50 p-6 text-center text-sm text-mist-500">{children}</div>
+  return <div className="rounded-2xl border border-dashed border-[var(--hairline-strong)] bg-ivory-50/60 p-6 text-center text-sm text-mist-500">{children}</div>
 }
 export function PersonLink({ p, className = '' }: { p: PersonSummary; className?: string }) {
   return (
@@ -33,7 +33,7 @@ export function PersonLink({ p, className = '' }: { p: PersonSummary; className?
     </Link>
   )
 }
-export function Spinner() { return <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-mist-200 border-t-ios-blue" role="status" aria-label="Chargement" /> }
+export function Spinner() { return <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-mist-200 border-t-night-800" role="status" aria-label="Chargement" /> }
 export function Markdown({ text }: { text: string }) {
   const html = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')

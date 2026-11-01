@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Activity, Archive, ArrowRight, CheckCircle2, ExternalLink, FileText, GitFork, HelpCircle, Lightbulb, Play, Rocket, Search, Sparkles,
+  Activity, Archive, ArrowRight, CheckCircle2, ChevronRight, ExternalLink, FileSearch, FileText, GitFork, Globe, HelpCircle, History, Lightbulb, Play, Rocket, Search, Sparkles,
   Upload, UserPlus, Users, Zap,
 } from 'lucide-react'
 import { api, openExternal, type Advice, type Discovery, type PersonSummary, type Priority, type QuestionOut } from '../api'
@@ -10,6 +10,8 @@ import { Spinner, formatTs } from '../components/ui'
 import { AI, Avatar, Portal, ageText, errMsg } from '../components/person/helpers'
 import { AdviceBody } from '../components/person/AdviceBody'
 import { AddRelativeMenu } from '../components/relatives/AddRelative'
+import { TaskLine } from '../components/research/trace'
+import { traceApi, type DiscoveryWithTask, type TraceTaskBrief } from '../lib/traceApi'
 
 type Worker = Awaited<ReturnType<typeof api.worker>>
 
@@ -76,6 +78,7 @@ function ResearchCentre({ paused: pausedSetting, refreshDashboard }: { paused: b
   const [persons, setPersons] = useState<PersonSummary[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [showAllDisc, setShowAllDisc] = useState(false)
+  const [recent, setRecent] = useState<TraceTaskBrief[] | null>(null)
 
   const load = useCallback(() => {
     api.worker().then(setWorker).catch(() => setWorker(null))
@@ -83,6 +86,7 @@ function ResearchCentre({ paused: pausedSetting, refreshDashboard }: { paused: b
     api.discoveries(40).then((d) => { setDiscoveries(d); setDiscErr(null) }).catch((e: unknown) => setDiscErr(errMsg(e)))
     api.questions('pending').then((q) => setQuestions([...q].sort((a, b) => b.priority - a.priority))).catch(() => setQuestions([]))
     api.persons(undefined, 1000).then(setPersons).catch(() => setPersons([]))
+    traceApi.tasks({ limit: 6 }).then(setRecent).catch(() => setRecent([]))
   }, [])
   useEffect(() => { load() }, [load])
   useEffect(() => {
@@ -166,15 +170,30 @@ function ResearchCentre({ paused: pausedSetting, refreshDashboard }: { paused: b
         </div>
         <div className="min-w-0 space-y-4">
           <QuestionsCard questions={questions} onAnswered={() => { load(); refreshDashboard() }} />
+          <Card title="Dernières recherches" icon={<History size={19} />} actions={<Link to="/enquetes" className="text-[14px] font-medium text-[#2f6fd1]">Toutes</Link>}>
+            {recent === null ? <Spinner /> : recent.length === 0 ? <p className="text-sm text-mist-500">Aucune recherche encore. Lancez-en une : vous pourrez voir ici où l’IA a cherché et ce qu’elle a trouvé.</p> : (
+              <div className="-mx-2 divide-y divide-black/5">{recent.map((t) => <TaskLine key={t.id} t={t} showPerson />)}</div>
+            )}
+            <Link to="/sources-consultees" className="mt-2 flex items-center justify-center gap-1.5 rounded-2xl bg-[#f4f6fb] py-2.5 text-[14px] font-medium text-night-900 hover:bg-[#eceff6]"><Globe size={16} />Sites consultés · vérifier le moteur</Link>
+          </Card>
           <Card title="Recherches en direct" icon={<Activity size={19} />}>
             {liveLogs.length === 0 ? <p className="text-sm text-mist-500">Aucune activité récente du moteur.</p> : (
-              <ul className="space-y-1.5">
-                {liveLogs.slice(0, 8).map((l) => (
-                  <li key={l.id} className="flex gap-2.5 text-[13px] leading-snug">
-                    <span className="shrink-0 tabular-nums text-mist-400">{formatTs(l.ts).slice(0, 5)}</span>
-                    <span className={`min-w-0 ${l.level === 'error' ? 'text-conf-red' : l.level === 'warning' ? 'text-[#8a5a10]' : 'text-night-900'}`}>{l.message}</span>
-                  </li>
-                ))}
+              <ul className="space-y-1">
+                {liveLogs.slice(0, 8).map((l) => {
+                  const body = (
+                    <>
+                      <span className="shrink-0 tabular-nums text-mist-400">{formatTs(l.ts).slice(0, 5)}</span>
+                      <span className={`min-w-0 flex-1 ${l.level === 'error' ? 'text-conf-red' : l.level === 'warning' ? 'text-[#8a5a10]' : 'text-night-900'}`}>{l.message}</span>
+                    </>
+                  )
+                  return (
+                    <li key={l.id}>
+                      {l.task_id ? (
+                        <Link to={`/enquetes/${l.task_id}`} className="-mx-1.5 flex gap-2.5 rounded-xl px-1.5 py-1 text-[13px] leading-snug hover:bg-black/[0.03]">{body}<ChevronRight size={14} className="mt-0.5 shrink-0 text-mist-400" /></Link>
+                      ) : <div className="flex gap-2.5 py-1 text-[13px] leading-snug">{body}</div>}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </Card>
@@ -311,7 +330,7 @@ const DISC: Record<Discovery['kind'], { label: string; icon: ReactNode; bg: stri
   archive: { label: 'Document archivé', icon: <Archive size={15} />, bg: '#e3f4e6', fg: '#2f6b3b' },
   question: { label: 'Question posée', icon: <HelpCircle size={15} />, bg: '#fff1dc', fg: '#a2660c' },
 }
-function DiscoveryItem({ d, onOpen }: { d: Discovery; onOpen: (to: string) => void }) {
+function DiscoveryItem({ d, onOpen }: { d: DiscoveryWithTask; onOpen: (to: string) => void }) {
   const m = DISC[d.kind]
   const to = d.kind === 'archive' ? `/archives?media=${d.id}` : d.kind === 'question' ? '/questions' : d.kind === 'source' ? `/archives?source=${d.id}` : d.person_id ? `/personnes/${d.person_id}` : null
   return (
@@ -325,6 +344,7 @@ function DiscoveryItem({ d, onOpen }: { d: Discovery; onOpen: (to: string) => vo
           {d.kind === 'hypothesis' && typeof d.score === 'number' && <span className="text-mist-500">score {Math.round(d.score)}/100</span>}
           {d.kind === 'question' && d.status === 'pending' && <span className="text-[#a2660c]">en attente de réponse</span>}
           {d.url && <button onClick={() => openExternal(d.url as string)} className="inline-flex items-center gap-1 text-mist-500 hover:text-night-900"><ExternalLink size={12} />Voir en ligne</button>}
+          {d.task_id && <Link to={`/enquetes/${d.task_id}`} className="inline-flex items-center gap-1 font-medium text-[#5b3fd6]"><FileSearch size={12} />Voir la recherche</Link>}
         </div>
       </div>
     </li>

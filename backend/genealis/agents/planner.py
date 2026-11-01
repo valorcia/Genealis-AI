@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..connectors.base import SearchQuery, registry
 from ..models import Person, ResearchTask
-from ..services.persons import parents_of, spouses_of
+from ..services.persons import families_of, parents_of, spouses_of
 
 DEPARTMENT_HINTS = {"meurthe-et-moselle": "54", "moselle": "57", "meuse": "55", "vosges": "88", "haute-saone": "70",
                     "haute-saône": "70", "haute-marne": "52", "nancy": "54", "metz": "57", "epinal": "88", "épinal": "88",
@@ -121,7 +121,67 @@ TASK_LABELS = {"find_birth": "Rechercher l'acte de naissance", "find_parents": "
                "verify_person": "Vérifier la cohérence", "find_military": "Rechercher le registre matricule"}
 
 
-def plan_task(db: Session, task: ResearchTask, person: Person | None) -> list[PlanStep]:
+WEB_SEARCH_TASKS = {"find_birth", "find_parents", "find_marriage", "find_death", "explore_branch"}
+SPECIAL_CONNECTORS = {"gemini_web"}  # ajoutés explicitement, jamais via la sélection générique
+
+
+def web_search_available(db: Session) -> bool:
+    """Vrai si la recherche web IA (Gemini + Google Search) peut être lancée automatiquement."""
+    try:
+        from ..ai.providers import AIClient
+
+        return AIClient(db).can_search_web()
+    except Exception:  # pragma: no cover - configuration illisible
+        return False
+
+
+def _event_text(e) -> str:
+    from ..services.persons import gendate_of
+
+    try:
+        date = gendate_of(e).display()
+    except Exception:
+        date = e.date_original or (str(e.sort_year) if e.sort_year else "")
+    place = e.place.display() if e.place else (e.place_original or "")
+    return " à ".join(x for x in (date, place) if x)
+
+
+def person_facts(db: Session, p: Person) -> dict:
+    """Faits connus d'une personne transmis à la recherche web IA (parents, conjoint, lieux, années)."""
+    facts: dict = {}
+    if p.sex:
+        facts["sex"] = p.sex
+    if p.occupation:
+        facts["occupation"] = p.occupation
+    if p.name_variants:
+        facts["name_variants"] = list(p.name_variants)[:6]
+    places: list[str] = []
+    for e in p.events:
+        txt = _event_text(e)
+        if e.event_type in ("birth", "baptism") and txt and "birth" not in facts:
+            facts["birth"] = txt
+        if e.event_type in ("death", "burial") and txt and "death" not in facts:
+            facts["death"] = txt
+        pl = e.place.name if e.place else e.place_original
+        if pl and pl not in places:
+            places.append(pl)
+    for f in families_of(db, p.id):
+        for e in getattr(f, "events", []) or []:
+            if e.event_type in ("marriage", "civil_marriage", "religious_marriage") and "marriage" not in facts:
+                facts["marriage"] = _event_text(e) or "date inconnue"
+    for par, _ in parents_of(db, p.id):
+        by = next((e.sort_year for e in par.events if e.event_type in ("birth", "baptism") and e.sort_year), None)
+        key = "father" if par.sex == "M" else "mother" if par.sex == "F" else ("father" if "father" not in facts else "mother")
+        facts[key] = par.display_name() + (f" (né(e) vers {by})" if by else "")
+    sp = [s.display_name() for s in spouses_of(db, p.id)]
+    if sp:
+        facts["spouses"] = sp
+    if places:
+        facts["places"] = places[:6]
+    return facts
+
+
+def plan_task(db: Session, task: ResearchTask, person: Person | None, *, web_search: bool | None = None) -> list[PlanStep]:
     """Établit un plan de recherche concret, limité aux connecteurs réellement disponibles."""
     steps: list[PlanStep] = []
     if person is None:
@@ -148,7 +208,7 @@ def plan_task(db: Session, task: ResearchTask, person: Person | None) -> list[Pl
                 continue
             seen.add(c.id)
             caps = c.capabilities
-            if caps.id in UTILITY:
+            if caps.id in UTILITY or caps.id in SPECIAL_CONNECTORS:
                 continue
             if caps.id in DEATH_ONLY:
                 if ttype == "find_death" and (q.year_to is None or q.year_to >= 1970):
@@ -157,6 +217,15 @@ def plan_task(db: Session, task: ResearchTask, person: Person | None) -> list[Pl
                 continue
             steps.append(PlanStep("search", caps.id, f"Interroger {caps.name}", q.to_dict()))
     steps.sort(key=lambda s: 0 if s.connector_id == "insee_deces_local" else 1)
+    # Recherche web IA (Gemini + Google Search) : juste après l'index INSEE local, si disponible
+    if ttype in WEB_SEARCH_TASKS and registry.get("gemini_web") is not None:
+        if web_search is None:
+            web_search = web_search_available(db)  # évalué une seule fois par plan
+        if web_search:
+            gq = SearchQuery(**{**q.to_dict(), "extra": {**q.extra, **person_facts(db, person)}})
+            pos = 1 if steps and steps[0].connector_id == "insee_deces_local" else 0
+            steps.insert(pos, PlanStep("search", "gemini_web", "Recherche web IA (Gemini + Google Search) : Geneanet, Filae, "
+                                                                 "FamilySearch, archives départementales…", gq.to_dict()))
     # 2. Services d'archives par navigateur (département / pays)
     for c in registry.all():
         caps = c.capabilities

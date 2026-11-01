@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronUp, ExternalLink, Plus, RotateCcw, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, FileSearch, Plus, RotateCcw, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react'
 import { api, TASK_STATUS_LABEL, openExternal, type PersonSummary, type PlanStep, type TaskOut } from '../../api'
 import { useApp } from '../../store'
 import { Empty, Field, Spinner, formatDate } from '../ui'
@@ -22,7 +22,7 @@ function StepRow({ s }: { s: PlanStep }) {
   const browse = typeof res.browse_url === 'string' ? res.browse_url : null
   const count = typeof res.count === 'number' ? res.count : null
   const results = Array.isArray(res.results) ? (res.results as ResultItem[]).slice(0, 5) : []
-  const err = typeof res.error === 'string' ? res.error : null
+  const err = typeof res.message === 'string' ? res.message : typeof res.error === 'string' ? res.error : null
   return (
     <li className="rounded-lg bg-ivory-100 p-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
@@ -64,7 +64,7 @@ function TaskCard({ t, persons, onChange }: { t: TaskOut; persons: Map<string, P
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`chip ${STATUS_CLASS[t.status] ?? 'conf-grey'}`}>{TASK_STATUS_LABEL[t.status] ?? t.status}</span>
-            <span className="font-medium text-night-900">{t.title}</span>
+            <Link to={`/enquetes/${t.id}`} className="font-medium text-night-900 hover:text-[#2f6fd1]">{t.title}</Link>
             <span className="text-xs text-mist-500">{TASK_TYPE_LABEL[t.task_type] ?? t.task_type}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-mist-500">
@@ -82,6 +82,7 @@ function TaskCard({ t, persons, onChange }: { t: TaskOut; persons: Map<string, P
           </>}
           {['failed', 'cancelled', 'done'].includes(t.status) && <button className="btn-ghost !py-1" disabled={busy} onClick={() => act(() => api.retryTask(t.id), 'Enquête relancée.')}><RotateCcw size={14} />Relancer</button>}
           {['queued', 'running', 'waiting_user', 'paused'].includes(t.status) && <button className="btn-ghost !py-1" disabled={busy} onClick={() => act(() => api.cancelTask(t.id), 'Enquête annulée.')}><XCircle size={14} />Annuler</button>}
+          <Link to={`/enquetes/${t.id}`} className="btn-ghost !py-1"><FileSearch size={14} />Rapport</Link>
           <button className="btn-ghost !px-2 !py-1" onClick={() => setOpen((v) => !v)} title="Détails">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>
         </div>
       </div>

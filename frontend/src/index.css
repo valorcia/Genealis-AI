@@ -1,147 +1,201 @@
+/* Polices : Fraunces (titres), Inter (interface), Alegreya (lecture « livre »). Téléchargées seulement si utilisées. */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Inter:wght@400..700&family=Alegreya:ital,wght@0,400..700;1,400..600&family=Alegreya+SC:wght@500;700&display=swap");
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 @import "@xyflow/react/dist/style.css";
 
 /*
- * Système visuel GENEALIS AI — style iOS / MacFamilyTree (clair uniquement).
- * Les noms historiques des jetons (night, ivory, gold, sage, mist, conf) sont conservés
- * pour les composants existants ; seules leurs valeurs ont changé :
- *   night  → encres bleu nuit (texte principal, surfaces sombres ponctuelles)
- *   ivory  → blancs et gris très clairs (fonds, bordures)
- *   gold   → famille violette « Recherche IA » (accent principal de l'IA)
- *   sage   → vert iOS
+ * Système visuel GENEALIS — « archive contemporaine ».
+ * Papier ivoire légèrement grainé, encre bleu nuit, filets dorés, titres en serif (Fraunces),
+ * interface en sans (Inter). Le violet est réservé à la Recherche IA.
+ * Les noms historiques des jetons sont conservés pour les composants existants :
+ *   night  → encres bleu nuit (texte principal, surfaces sombres)
+ *   ivory  → papiers ivoire (fonds, cartes, bordures)
+ *   gold   → famille violette « Recherche IA » (nom historique)
+ *   brass  → or discret (filets, ornements, favoris) — nouveau
+ *   sage   → vert sauge
+ *   mist   → gris chauds (texte secondaire, séparateurs)
  */
 @theme {
-  --color-night-950: #121826;
-  --color-night-900: #1c2333;
-  --color-night-800: #2a3346;
-  --color-night-700: #3a4560;
-  --color-night-600: #52607d;
-  --color-ivory-50: #ffffff;
-  --color-ivory-100: #f5f7fb;
-  --color-ivory-200: #e9edf4;
-  --color-ivory-300: #dce2eb;
+  --color-night-950: #0e1828;
+  --color-night-900: #172338;
+  --color-night-800: #22314b;
+  --color-night-700: #34455f;
+  --color-night-600: #4c5c76;
+  --color-ivory-50: #fffdf8;
+  --color-ivory-100: #f8f4ea;
+  --color-ivory-200: #efe8d9;
+  --color-ivory-300: #e1d7c3;
   --color-gold-400: #9d8af2;
   --color-gold-500: #7458e6;
   --color-gold-600: #5b3fd6;
-  --color-sage-300: #a9dcb8;
-  --color-sage-400: #5fbb7d;
-  --color-sage-500: #2e9a52;
-  --color-sage-600: #237a40;
-  --color-mist-100: #f2f4f8;
-  --color-mist-200: #e3e7ee;
-  --color-mist-300: #cbd1db;
-  --color-mist-400: #98a0ae;
-  --color-mist-500: #697282;
-  --color-conf-green: #2e9a52;
-  --color-conf-orange: #e0861b;
-  --color-conf-red: #d6453b;
-  --color-conf-grey: #98a0ae;
-  --color-ios-blue: #2f6fd1;
+  --color-brass-200: #ecdfc0;
+  --color-brass-300: #d8c08a;
+  --color-brass-400: #c4a462;
+  --color-brass-500: #a98843;
+  --color-brass-600: #876a2e;
+  --color-sage-300: #bfd0b8;
+  --color-sage-400: #86a580;
+  --color-sage-500: #557d55;
+  --color-sage-600: #426645;
+  --color-mist-100: #f4f0e7;
+  --color-mist-200: #e7e1d4;
+  --color-mist-300: #d0c8b8;
+  --color-mist-400: #9a9384;
+  --color-mist-500: #6b665c;
+  --color-conf-green: #3f8a50;
+  --color-conf-orange: #c47a1e;
+  --color-conf-red: #b9432f;
+  --color-conf-grey: #a39c8d;
+  --color-ios-blue: #2c4f86;
   --color-ios-violet: #5b3fd6;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-book: "Alegreya", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-book-sc: "Alegreya SC", "Alegreya", "Iowan Old Style", Georgia, serif;
 }
 
 :root {
   color-scheme: light;
-  --app-bg: #eef1f7;
-  --panel-bg: #ffffff;
+  --app-bg: #f5f0e5;
+  --panel-bg: var(--color-ivory-50);
   --text-main: var(--color-night-900);
   --text-muted: var(--color-mist-500);
   --accent: var(--color-ios-blue);
+  --hairline: rgb(120 96 52 / 0.16);
+  --hairline-strong: rgb(120 96 52 / 0.28);
+  --ai: #5b3fd6;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  /* Largeur du rail de navigation (bureau). Les barres fixes s'y alignent. */
+  --rail-w: 0px;
+  /* Hauteur réservée en bas pour la barre d'onglets (téléphone/tablette). */
+  --dock-h: calc(var(--safe-bottom) + 78px);
+  /* Hauteur de la barre du haut (téléphone/tablette) au-dessus de la zone de contenu. */
+  --top-h: calc(var(--safe-top) + 55px);
+}
+@media (min-width: 1024px) {
+  :root { --rail-w: 272px; --dock-h: 0px; --top-h: 0px; }
 }
 
 html, body, #root { height: 100%; margin: 0; }
 body {
-  background: var(--app-bg);
+  background-color: var(--app-bg);
+  /* Papier : lumière douce en haut, vignette chaude, fibres très fines (dégradés CSS uniquement). */
+  background-image:
+    radial-gradient(120% 60% at 15% -5%, rgb(255 253 246 / 0.9) 0%, rgb(255 253 246 / 0) 60%),
+    radial-gradient(90% 70% at 105% 110%, rgb(169 136 67 / 0.09) 0%, rgb(169 136 67 / 0) 60%),
+    repeating-linear-gradient(33deg, rgb(110 84 40 / 0.022) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-57deg, rgb(110 84 40 / 0.018) 0 1px, transparent 1px 5px);
+  background-attachment: fixed;
   color: var(--text-main);
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.45;
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
 }
-::selection { background: color-mix(in srgb, var(--color-ios-blue) 22%, transparent); }
+::selection { background: rgb(196 164 98 / 0.32); }
 
-/* Titres : police système en demi-gras (plus de serif). La famille vient du jeton --font-display. */
+/* Titres : serif Fraunces, demi-gras, à optique adaptée. */
 @layer components {
-  .font-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.015em; }
+  .font-display { font-family: var(--font-display); font-weight: 560; letter-spacing: -0.012em; font-optical-sizing: auto; }
 }
 
 /* ---------- Surfaces ---------- */
+@utility paper-grain {
+  background-color: var(--color-ivory-50);
+  background-image:
+    radial-gradient(140% 90% at 0% 0%, rgb(255 255 255 / 0.7) 0%, rgb(255 255 255 / 0) 55%),
+    repeating-linear-gradient(33deg, rgb(110 84 40 / 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-57deg, rgb(110 84 40 / 0.014) 0 1px, transparent 1px 5px);
+}
 @utility panel {
-  background: #ffffff;
-  border: 1px solid rgb(0 0 0 / 0.05);
-  border-radius: 24px;
-  box-shadow: 0 1px 2px rgb(28 35 51 / 0.05), 0 10px 30px -16px rgb(28 35 51 / 0.22);
+  background: var(--color-ivory-50);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 1px 2px rgb(60 44 18 / 0.05), 0 14px 32px -22px rgb(40 32 18 / 0.35);
+}
+/* Carte papier générique (même famille que panel, plus discrète). */
+@utility paper {
+  background: var(--color-ivory-50);
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgb(60 44 18 / 0.05), 0 10px 26px -20px rgb(40 32 18 / 0.35);
 }
 @utility glass {
-  background: rgb(255 255 255 / 0.75);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  backdrop-filter: blur(24px) saturate(1.6);
-  border: 1px solid rgb(255 255 255 / 0.7);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 12px 36px -14px rgb(28 40 70 / 0.32);
+  background: rgb(252 249 241 / 0.86);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.85) inset, 0 14px 36px -18px rgb(40 32 18 / 0.4);
 }
+/* Carte cliquable (tuiles des chapitres, favoris). */
 @utility tile {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  background: #ffffff;
-  border-radius: 26px;
-  border: 1px solid rgb(255 255 255 / 0.9);
-  box-shadow: 0 1px 2px rgb(28 35 51 / 0.06), 0 10px 26px -14px rgb(28 40 70 / 0.3);
-  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: var(--color-ivory-50);
+  border-radius: 18px;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 1px 2px rgb(60 44 18 / 0.05), 0 12px 26px -22px rgb(40 32 18 / 0.45);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s ease, box-shadow 0.25s ease;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   cursor: pointer;
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    box-shadow: 0 22px 44px -18px rgb(28 40 70 / 0.38);
-    opacity: 0;
-    transition: opacity 0.22s ease;
-    pointer-events: none;
-  }
   @media (hover: hover) {
-    &:hover { transform: translateY(-3px); }
-    &:hover::after { opacity: 1; }
+    &:hover { transform: translateY(-2px); border-color: var(--hairline-strong); box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 2px 4px rgb(60 44 18 / 0.05), 0 22px 40px -24px rgb(40 32 18 / 0.5); }
   }
-  &:active { transform: scale(0.96); }
-  &:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-ios-blue) 45%, transparent); outline-offset: 3px; }
+  &:active { transform: scale(0.985); }
+  &:focus-within { outline: none; }
+  &:has(:focus-visible) { box-shadow: 0 0 0 3px rgb(44 79 134 / 0.28); }
+}
+
+/* ---------- Typographie éditoriale ---------- */
+/* Petite accroche en capitales espacées (au-dessus d'un titre). */
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+/* Filet doré fin (séparateur). */
+@utility hairline-gold {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, var(--color-brass-400) 0%, rgb(196 164 98 / 0.35) 55%, rgb(196 164 98 / 0) 100%);
 }
 
 /* ---------- Boutons ---------- */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium select-none cursor-pointer transition-[transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ios-blue/30;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium select-none cursor-pointer transition-[transform,opacity,background-color] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ios-blue/30;
 }
-@utility btn-primary { @apply btn bg-ios-blue text-white shadow-[0_6px_16px_-8px_rgba(47,111,209,0.8)] hover:bg-[#2a63bd]; }
-@utility btn-gold { @apply btn bg-ios-violet text-white shadow-[0_6px_16px_-8px_rgba(91,63,214,0.85)] hover:bg-[#5036c4]; }
-@utility btn-ghost { @apply btn bg-white text-night-900 border border-black/[0.08] shadow-[0_1px_2px_rgba(28,35,51,0.05)] hover:bg-ivory-100; }
-@utility btn-sage { @apply btn bg-sage-500 text-white shadow-[0_6px_16px_-8px_rgba(46,154,82,0.8)] hover:bg-sage-600; }
-@utility btn-danger { @apply btn bg-conf-red text-white hover:bg-[#c23a31]; }
+@utility btn-primary { @apply btn bg-night-900 text-ivory-50 shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_8px_18px_-10px_rgba(14,24,40,0.8)] hover:bg-night-800; }
+@utility btn-gold { @apply btn bg-ios-violet text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_8px_18px_-10px_rgba(91,63,214,0.85)] hover:bg-[#4f35c2]; }
+@utility btn-ghost { @apply btn bg-ivory-50 text-night-900 border border-[rgba(120,96,52,0.2)] shadow-[0_1px_2px_rgba(60,44,18,0.05)] hover:bg-ivory-100; }
+@utility btn-sage { @apply btn bg-sage-500 text-white shadow-[0_8px_18px_-10px_rgba(66,102,69,0.8)] hover:bg-sage-600; }
+@utility btn-danger { @apply btn bg-conf-red text-white hover:bg-[#a03826]; }
 
 /* ---------- Formulaires ---------- */
 @utility input {
-  @apply w-full rounded-xl border border-black/[0.09] bg-white px-3 py-2 text-base sm:text-sm text-night-900 shadow-[0_1px_2px_rgba(28,35,51,0.04)] outline-none placeholder:text-mist-400 focus:border-ios-blue focus:ring-3 focus:ring-ios-blue/20;
+  @apply w-full rounded-xl border border-[rgba(120,96,52,0.2)] bg-ivory-50 px-3 py-2 text-base sm:text-sm text-night-900 shadow-[0_1px_2px_rgba(60,44,18,0.04)_inset] outline-none placeholder:text-mist-400 focus:border-ios-blue/60 focus:ring-3 focus:ring-ios-blue/15;
 }
-@utility label { @apply mb-1 block text-[11px] font-semibold uppercase tracking-wider text-mist-500; }
+@utility label { @apply mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-mist-500; }
 @utility chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
 
 /* ---------- Confiance ---------- */
-.conf-green { background: color-mix(in srgb, var(--color-conf-green) 14%, white); color: #1f6e3a; }
-.conf-orange { background: color-mix(in srgb, var(--color-conf-orange) 16%, white); color: #8f520b; }
-.conf-red { background: color-mix(in srgb, var(--color-conf-red) 13%, white); color: #9c2a22; }
+.conf-green { background: color-mix(in srgb, var(--color-conf-green) 14%, var(--color-ivory-50)); color: #2c6a3b; }
+.conf-orange { background: color-mix(in srgb, var(--color-conf-orange) 16%, var(--color-ivory-50)); color: #87510f; }
+.conf-red { background: color-mix(in srgb, var(--color-conf-red) 13%, var(--color-ivory-50)); color: #8e2e1f; }
 .conf-grey { background: var(--color-mist-200); color: var(--color-mist-500); }
 .dot-green { background: var(--color-conf-green); } .dot-orange { background: var(--color-conf-orange); }
 .dot-red { background: var(--color-conf-red); } .dot-grey { background: var(--color-conf-grey); }
@@ -164,7 +218,7 @@ body {
 .fade-up { animation: fade-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 /* Entrée des tuiles : « backwards » pour ne pas bloquer l'effet de survol (transform) une fois l'animation finie. */
 .tile-in { animation: fade-up 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-@keyframes sheet-up { from { opacity: 0; transform: translateY(24px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes sheet-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 .sheet-up { animation: sheet-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .fade-in { animation: fade-in 0.2s ease-out both; }
@@ -176,3 +230,6 @@ body {
 .prose-sm p { margin: 0.4em 0; }
 .markdown strong { font-weight: 600; } .markdown ul { list-style: disc; padding-left: 1.2em; margin: .3em 0; } .markdown li { margin: .15em 0; }
 .markdown em { color: var(--text-muted); }
+@media print {
+  body { background: #fff; }
+}

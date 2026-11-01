@@ -439,21 +439,24 @@ def discoveries(limit: int = 60, db: Session = Depends(get_session)):
         p = db.get(Person, h.subject_person_id) if h.subject_person_id else None
         items.append({"kind": "hypothesis", "id": h.id, "title": h.title, "status": h.status, "score": h.score,
                       "person_id": h.subject_person_id, "person_name": p.display_name() if p else None,
-                      "url": (h.candidate or {}).get("url"), "created_at": h.created_at, "by": h.created_by})
+                      "url": (h.candidate or {}).get("url"), "created_at": h.created_at, "by": h.created_by,
+                      "task_id": h.task_id})
     for src in db.execute(select(Source).where(Source.connector_id.isnot(None)).order_by(Source.created_at.desc()).limit(limit)).scalars():
         items.append({"kind": "source", "id": src.id, "title": src.title, "status": src.reliability, "url": src.url,
-                      "created_at": src.created_at, "person_id": None, "person_name": None, "by": src.connector_id})
+                      "created_at": src.created_at, "person_id": None, "person_name": None, "by": src.connector_id,
+                      "task_id": None})
     for m in db.execute(select(Media).order_by(Media.created_at.desc()).limit(limit)).scalars():
         if not (m.analysis or {}).get("archived_from"):
             continue
         p = db.get(Person, m.person_id) if m.person_id else None
         items.append({"kind": "archive", "id": m.id, "title": m.title, "status": m.kind, "url": m.analysis.get("archived_from"),
                       "person_id": m.person_id, "person_name": p.display_name() if p else None, "created_at": m.created_at,
-                      "by": "archiviste"})
+                      "by": "archiviste", "task_id": None})
     for q in db.execute(select(Question).order_by(Question.created_at.desc()).limit(limit)).scalars():
         p = db.get(Person, q.person_id) if q.person_id else None
         items.append({"kind": "question", "id": q.id, "title": q.title, "status": q.status, "person_id": q.person_id,
-                      "person_name": p.display_name() if p else None, "created_at": q.created_at, "url": None, "by": "coordinateur"})
+                      "person_name": p.display_name() if p else None, "created_at": q.created_at, "url": None, "by": "coordinateur",
+                      "task_id": q.task_id})
     items.sort(key=lambda x: x["created_at"], reverse=True)
     return items[:limit]
 
@@ -476,7 +479,7 @@ def advice(person_id: str, db: Session = Depends(get_session)):
     links = []
     for c in registry.all():
         caps = c.capabilities
-        if caps.id in ("geo_api_gouv", "nominatim", "wikidata"):
+        if caps.id in ("geo_api_gouv", "nominatim", "wikidata", "gemini_web"):
             continue
         if caps.country in ("*", ctx["country"]) and (caps.country != "FR" or not ctx.get("department")
                                                          or ctx["department"] in caps.areas or "*" in caps.areas):
