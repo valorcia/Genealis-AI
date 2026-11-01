@@ -9,7 +9,7 @@ avantageusement : pas besoin de laisser un PC allumé. Le serveur va chercher se
 1. Console Oracle Cloud → menu ☰ → **Compute** → **Instances** → **Create instance**.
 2. **Name** : `genealis`.
 3. **Image and shape** → *Edit* :
-   - Image : **Canonical Ubuntu 24.04** ;
+   - Image : **Canonical Ubuntu 24.04** si elle est proposée, sinon **Oracle Linux 9** (image par défaut, prise en charge aussi) ;
    - Shape : **Ampere** → `VM.Standard.A1.Flex`, **1 OCPU, 6 GB** (mention *Always Free-eligible*).
    - Si Oracle répond « Out of capacity » : essayez un autre *Availability domain*, ou la forme AMD
      `VM.Standard.E2.1.Micro` (gratuite aussi, 1 Go : le script ajoute alors de l'espace d'échange, c'est plus lent).
@@ -24,7 +24,7 @@ Le plus simple, sans rien installer : **Cloud Shell** (icône `>_` en haut à dr
 2. Tapez (remplacez `IP` par l'adresse publique) :
    ```
    chmod 600 ssh-key-*.key
-   ssh -i ssh-key-*.key ubuntu@IP
+   ssh -i ssh-key-*.key opc@IP     (Oracle Linux)   —   ou ubuntu@IP si vous avez pu choisir Ubuntu
    ```
    Répondez `yes` à la première question.
 

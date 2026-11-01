@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =====================================================================================================================
-# GENEALIS AI — installation du NAVIGATEUR AUTONOME sur un serveur Linux (Ubuntu 22.04/24.04 ou Debian 12),
+# GENEALIS AI — installation du NAVIGATEUR AUTONOME sur un serveur Linux (Ubuntu 22.04/24.04, Debian 12 ou Oracle Linux 9),
 # par exemple Oracle Cloud « Always Free » (Ampere ARM ou AMD), Hetzner, OVHcloud…
 #
 # Une seule commande, en SSH sur le serveur :
@@ -45,23 +45,35 @@ ask_secret() {
 }
 
 [ "$(id -u)" -eq 0 ] || die "Lancez le script en administrateur : … | sudo bash"
-command -v apt-get >/dev/null || die "Ce script est prévu pour Ubuntu ou Debian (apt-get introuvable)."
+if command -v apt-get >/dev/null; then PKG=apt
+elif command -v dnf >/dev/null; then PKG=dnf   # Oracle Linux 8/9, Rocky, AlmaLinux, RHEL, Fedora
+else die "Système non pris en charge : il faut Ubuntu, Debian ou Oracle Linux (apt-get ou dnf)."; fi
 
 # --------------------------------------------------------------------------------------------- 1. paquets système
 say "1/5 — Paquets système (Python, Git)"
 if [ "${GENEALIS_SKIP_APT:-0}" != "1" ]; then
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq
-  apt-get install -y -qq git ca-certificates curl python3 python3-venv python3-pip >/dev/null
+  if [ "$PKG" = apt ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    apt-get install -y -qq git ca-certificates curl python3 python3-venv python3-pip >/dev/null
+  else
+    dnf install -y -q git ca-certificates curl tar >/dev/null
+    # Python ≥ 3.11 (Oracle Linux 9 fournit python3.12 / python3.11 à côté de son python3.9)
+    dnf install -y -q python3.12 python3.12-pip >/dev/null 2>&1 || dnf install -y -q python3.11 python3.11-pip >/dev/null 2>&1 || true
+    # Bibliothèques nécessaires à Chromium (Playwright ne sait les installer automatiquement que sous Ubuntu/Debian)
+    dnf install -y -q nss nspr atk at-spi2-atk at-spi2-core cups-libs libdrm libxkbcommon libXcomposite libXdamage \
+      libXfixes libXrandr libXext libX11 libxcb mesa-libgbm pango cairo alsa-lib libxshmfence dbus-libs expat \
+      liberation-fonts dejavu-sans-fonts >/dev/null 2>&1 || echo "  (certaines bibliothèques de Chromium n'ont pas pu être installées : la vérification le dira)"
+  fi
 fi
 PY=""
 for c in python3.13 python3.12 python3.11 python3; do
   if command -v "$c" >/dev/null && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then PY="$(command -v "$c")"; break; fi
 done
-if [ -z "$PY" ] && [ "${GENEALIS_SKIP_APT:-0}" != "1" ]; then  # Ubuntu 22.04 : Python 3.10 par défaut
+if [ -z "$PY" ] && [ "$PKG" = apt ] && [ "${GENEALIS_SKIP_APT:-0}" != "1" ]; then  # Ubuntu 22.04 : Python 3.10 par défaut
   apt-get install -y -qq python3.11 python3.11-venv >/dev/null 2>&1 && PY="$(command -v python3.11)"
 fi
-[ -n "$PY" ] || die "Python 3.11 ou plus récent est nécessaire (choisissez l'image Ubuntu 24.04)."
+[ -n "$PY" ] || die "Python 3.11 ou plus récent est nécessaire et n'a pas pu être installé."
 ok "$("$PY" --version) — $(uname -m)"
 
 # Petits serveurs (1 Go) : un fichier d'échange évite que Chromium soit arrêté faute de mémoire
@@ -90,7 +102,7 @@ as_user() { runuser -u "$RUN_USER" -- env HOME="$HOME_DIR" "$@"; }
 as_user "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
 as_user "$APP_DIR/.venv/bin/pip" install -q -e "$APP_DIR/backend[browser]"
 ok "GENEALIS, Playwright et Browser Use installés"
-if [ "${GENEALIS_SKIP_APT:-0}" != "1" ]; then
+if [ "$PKG" = apt ] && [ "${GENEALIS_SKIP_APT:-0}" != "1" ]; then
   "$APP_DIR/.venv/bin/python" -m playwright install-deps chromium >/dev/null
 fi
 if [ -z "${GENEALIS_CHROMIUM_PATH:-}" ]; then
