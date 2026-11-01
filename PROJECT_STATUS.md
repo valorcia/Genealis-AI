@@ -1,10 +1,21 @@
 # PROJECT_STATUS.md — GENEALIS AI
 
-_Mis à jour le 01/11/2026 (v0.1.0)._ Ce fichier distingue strictement ce qui est **terminé**, **testé**, **en cours** et **limité**.
+_Mis à jour le 01/11/2026 (v0.2.0 en cours)._ Ce fichier distingue strictement ce qui est **terminé**, **testé**, **en cours** et **limité**.
 
 ## Fonctionnalités terminées (code écrit)
 
-### Mode hébergé (Vercel) et mobile — nouveau
+### v0.2 — recherche IA au centre, design MacFamilyTree, archivage web — nouveau
+- **Démarrage par les grands-parents** (`POST /api/quickstart`) : un couple (ou une personne) et ses enfants connus, sans se saisir soi-même ; recherche IA lancée aussitôt.
+- **Ajout de proches en un geste** (`POST /api/persons/{id}/relatives`) : père, mère, frère, sœur (rattachés aux parents connus, sinon lien de fratrie sans parent inventé), fils/fille avec le conjoint, conjoint avec mariage, grands-parents paternels/maternels (fiche d'attente explicite si le parent intermédiaire manque), personne existante ; refus d'un second père/mère biologique.
+- **Âge** dans l'identité : au décès ou actuel, détaillé « 82 a 5 m 12 j » si dates exactes, « ≈ » sinon, jamais calculé quand une date manque.
+- **Liens de parenté** (`/kinship`) : ancêtre commun, libellés français (grand-oncle, cousin issu de germain, à la mode de Bretagne, par alliance), degré civil, chemin.
+- **Statistiques** (`/api/stats`), **état de la base** (`/api/reports/state`), **liste des événements** (`/api/events`).
+- **Archivage web** : images, PDF et pages web trouvés en ligne archivés dans l'application (robots.txt respecté, sites interdisant la collecte exclus, HTML nettoyé et affiché en bac à sable), automatiquement pour les meilleures pistes des enquêtes et les sources enregistrées ; stockage en base PostgreSQL quand Blob n'est pas configuré (persistant sur Vercel).
+- **Publication** : site internet statique (zip, vivants masqués), GEDCOM d'un sous-arbre, suppression d'un sous-arbre avec aperçu et confirmation.
+- **Centre de recherche IA** : fil des découvertes, pistes de recherche par personne (IA si configurée, présentées comme suggestions ; sinon règles), aide générale de l'assistant par l'IA.
+- **Interface** refondue sur le modèle de MacFamilyTree : catégories colorées (Recherche IA, Éditer, Graphiques, Vues, Rapports, Listes, Publication, Favoris), tuiles, arbre interactif par bandes de générations, éventail, sablier, ascendance, descendance, double ascendance, distribution des noms, statistiques, liens de parenté, sociogramme, arbre circulaire, génogramme, arbre virtuel 3D, globe virtuel, cartes statistiques, quiz familial, 13 rapports imprimables, 10 listes.
+
+### Mode hébergé (Vercel) et mobile
 - Même moteur Python exposé en service Vercel (`vercel.json` au format « services » : `frontend/` Vite + `backend/` FastAPI `genealis.main:app`, `backend/requirements.txt`), base **PostgreSQL (Neon)** ou SQLite au choix via `DATABASE_URL`, documents sur **Vercel Blob** (`storage.py`), recherche plein texte portable (FTS5 sous SQLite, LIKE sans accents sous Postgres), clé de chiffrement par variable d'environnement, initialisation paresseuse.
 - Exécution des enquêtes **à la demande** (`POST /api/research/run` par tranches de 50 s déclenchées par l'interface ouverte, `GET /api/research/cron` quotidien protégé par `CRON_SECRET`), verrou anti-exécution parallèle, délais réseau raccourcis.
 - **Protection par mot de passe** (`ACCESS_TOKEN`, cookie httpOnly) : données privées même sur une adresse publique.
